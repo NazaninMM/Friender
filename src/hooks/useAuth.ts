@@ -80,13 +80,15 @@ export const useAuth = () => {
         .eq('id', userId)
         .single();
 
+       console.log('💬 PROFILE FETCH RESULT:', { data, error });
+
       if (error) {
-        console.log('useAuth: Expected error fetching user profile (using mock):', error.message);
+       console.log('❌ Profile fetch error:', error.message);
         return;
       }
 
       if (data) {
-        console.log('useAuth: User profile fetched successfully');
+        console.log('✅ User profile fetched:', data);
         const userProfile: User = {
           id: data.id,
           firstName: data.first_name,
