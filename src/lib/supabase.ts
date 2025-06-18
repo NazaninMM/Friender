@@ -6,6 +6,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 console.log('Supabase URL:', supabaseUrl)
 console.log('Supabase Anon Key:', supabaseAnonKey ? 'Present' : 'Missing')
 
+let supabase: any;
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables')
   console.error('VITE_SUPABASE_URL:', supabaseUrl)
@@ -27,11 +29,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
     })
   }
   
-  // Export mock client
-  export const supabase = mockClient as any
+  supabase = mockClient;
+  console.log('Using mock Supabase client - app will show auth screen but database operations will not work');
 } else {
-  export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  console.log('Supabase client created successfully');
 }
+
+export { supabase };
 
 // Database types
 export interface Database {
