@@ -245,7 +245,7 @@ export const useAuth = () => {
     try {
       console.log('useAuth: Updating user profile...');
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           first_name: updates.firstName,
           last_name: updates.lastName,
