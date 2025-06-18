@@ -21,6 +21,8 @@ type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail';
 type MainTab = 'home' | 'chats' | 'activities' | 'profile';
 
 function App() {
+  console.log('App: Rendering App component');
+  
   const { user, loading, signOut } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('main');
   const [currentTab, setCurrentTab] = useState<MainTab>('home');
@@ -33,6 +35,8 @@ function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [directChats, setDirectChats] = useState<DirectMessageChat[]>([]);
+
+  console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None');
 
   const handleSettings = () => {
     setCurrentScreen('settings');
@@ -406,6 +410,7 @@ function App() {
   };
 
   if (loading) {
+    console.log('App: Showing loading screen');
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
         <motion.div
@@ -418,8 +423,11 @@ function App() {
   }
 
   if (!user) {
+    console.log('App: Showing auth screen');
     return <AuthScreen />;
   }
+
+  console.log('App: Showing main app interface');
 
   if (currentScreen === 'settings') {
     return (
