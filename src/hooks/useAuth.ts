@@ -156,7 +156,7 @@ export const useAuth = () => {
         console.log('useAuth: User signed up successfully, creating profile...');
         // Create user profile
         const { error: profileError } = await supabase
-          .from('users')
+          .from('profiles')
           .insert({
             id: data.user.id,
             email,
