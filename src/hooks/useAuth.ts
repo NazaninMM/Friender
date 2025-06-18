@@ -75,7 +75,7 @@ export const useAuth = () => {
     try {
       console.log('useAuth: Fetching user profile for:', userId);
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
