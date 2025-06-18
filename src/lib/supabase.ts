@@ -20,7 +20,7 @@ if (!hasValidSupabaseConfig) {
   console.warn('⚠️ Supabase not configured properly - using mock client');
   console.log('To use real Supabase, update your .env file with valid credentials');
   
-  // Create a comprehensive mock client
+  // Create a comprehensive mock client with realistic error handling
   const mockClient = {
     auth: {
       getSession: () => {
@@ -41,10 +41,26 @@ if (!hasValidSupabaseConfig) {
       },
       signUp: (credentials: any) => {
         console.log('Mock: signUp called with:', credentials.email);
+        
+        // Simulate some validation
+        if (!credentials.email || !credentials.password) {
+          return Promise.resolve({ 
+            data: null, 
+            error: { message: 'Email and password are required' } 
+          });
+        }
+        
+        if (credentials.password.length < 6) {
+          return Promise.resolve({ 
+            data: null, 
+            error: { message: 'Password must be at least 6 characters long' } 
+          });
+        }
+        
         return Promise.resolve({ 
           data: { 
             user: { 
-              id: 'mock-user-id', 
+              id: 'mock-user-' + Date.now(), 
               email: credentials.email 
             } 
           }, 
@@ -53,10 +69,45 @@ if (!hasValidSupabaseConfig) {
       },
       signInWithPassword: (credentials: any) => {
         console.log('Mock: signInWithPassword called with:', credentials.email);
+        
+        // Simulate realistic authentication errors
+        const mockUsers = [
+          'alex.johnson@email.com',
+          'maya.chen@email.com',
+          'jordan.kim@email.com',
+          'sam.rodriguez@email.com',
+          'demo@friender.com',
+          'test@example.com'
+        ];
+        
+        if (!credentials.email || !credentials.password) {
+          return Promise.resolve({ 
+            data: null, 
+            error: { message: 'Email and password are required' } 
+          });
+        }
+        
+        // Check if email exists in our mock database
+        if (!mockUsers.includes(credentials.email.toLowerCase())) {
+          return Promise.resolve({ 
+            data: null, 
+            error: { message: 'Invalid login credentials' } 
+          });
+        }
+        
+        // Simulate wrong password
+        if (credentials.password === 'wrongpassword') {
+          return Promise.resolve({ 
+            data: null, 
+            error: { message: 'Invalid login credentials' } 
+          });
+        }
+        
+        // Successful login
         return Promise.resolve({ 
           data: { 
             user: { 
-              id: 'mock-user-id', 
+              id: 'mock-user-signin', 
               email: credentials.email 
             } 
           }, 

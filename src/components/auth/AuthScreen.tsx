@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ArrowRight, Shield, Sparkles, MapPin, Eye, EyeOff, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Users, ArrowRight, Shield, Sparkles, MapPin, Eye, EyeOff, Mail, Lock, User as UserIcon, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useAuth } from '../../hooks/useAuth';
@@ -29,31 +29,76 @@ export const AuthScreen: React.FC = () => {
 
     try {
       if (mode === 'signin') {
-        const { error } = await signIn(formData.email, formData.password);
+        // Validate email format
+        if (!formData.email.trim()) {
+          setError('Please enter your email address');
+          setLoading(false);
+          return;
+        }
+
+        if (!formData.password.trim()) {
+          setError('Please enter your password');
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signIn(formData.email.trim(), formData.password);
         if (error) {
-          setError(error.message || 'Failed to sign in');
+          setError(error.message);
         }
       } else {
         // Validation for signup
+        if (!formData.firstName.trim()) {
+          setError('First name is required');
+          setLoading(false);
+          return;
+        }
+
+        if (!formData.lastName.trim()) {
+          setError('Last name is required');
+          setLoading(false);
+          return;
+        }
+
+        if (!formData.email.trim()) {
+          setError('Email address is required');
+          setLoading(false);
+          return;
+        }
+
+        // Email format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email.trim())) {
+          setError('Please enter a valid email address');
+          setLoading(false);
+          return;
+        }
+
+        if (!formData.password.trim()) {
+          setError('Password is required');
+          setLoading(false);
+          return;
+        }
+
+        if (formData.password.length < 6) {
+          setError('Password must be at least 6 characters long');
+          setLoading(false);
+          return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
           setLoading(false);
           return;
         }
 
-        if (formData.password.length < 6) {
-          setError('Password must be at least 6 characters');
+        if (formData.age < 18) {
+          setError('You must be at least 18 years old to sign up');
           setLoading(false);
           return;
         }
 
-        if (!formData.firstName.trim() || !formData.lastName.trim()) {
-          setError('First name and last name are required');
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await signUp(formData.email, formData.password, {
+        const { error } = await signUp(formData.email.trim(), formData.password, {
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
           age: formData.age,
@@ -65,11 +110,11 @@ export const AuthScreen: React.FC = () => {
         });
 
         if (error) {
-          setError(error.message || 'Failed to create account');
+          setError(error.message);
         }
       }
-    } catch (err) {
-      setError('An unexpected error occurred');
+    } catch (err: any) {
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -121,9 +166,27 @@ export const AuthScreen: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg"
+              className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl"
             >
-              <p className="text-red-700 text-sm">{error}</p>
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="text-red-800 font-medium mb-1">
+                    {mode === 'signin' ? 'Sign In Failed' : 'Sign Up Failed'}
+                  </h4>
+                  <p className="text-red-700 text-sm leading-relaxed">{error}</p>
+                  {mode === 'signin' && error.includes('No account found') && (
+                    <div className="mt-3">
+                      <button
+                        onClick={switchMode}
+                        className="text-sm text-red-600 hover:text-red-700 font-medium underline"
+                      >
+                        Create a new account instead
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -201,6 +264,7 @@ export const AuthScreen: React.FC = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  disabled={loading}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>

@@ -130,26 +130,8 @@ export const useAuth = () => {
       });
 
       if (error) {
-        console.log('useAuth: Sign up error (expected with mock):', error.message);
-        // For demo purposes, create a mock user
-        const mockUser: User = {
-          id: 'mock-user-' + Date.now(),
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          name: `${userData.firstName} ${userData.lastName}`,
-          email,
-          age: userData.age,
-          profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-          bio: userData.bio || 'New to Friender! Excited to meet amazing people through shared activities.',
-          location: userData.location || 'San Francisco, CA',
-          interests: userData.interests || ['Social', 'Adventure', 'Food'],
-          personalityTraits: userData.personalityTraits || ['Friendly', 'Open-minded'],
-          joinedActivities: [],
-          createdActivities: [],
-          connectedServices: userData.connectedServices || [],
-        };
-        setUser(mockUser);
-        return { data: { user: mockUser }, error: null };
+        console.log('useAuth: Sign up error:', error.message);
+        return { data: null, error };
       }
 
       if (data.user) {
@@ -171,16 +153,17 @@ export const useAuth = () => {
           });
 
         if (profileError) {
-          console.log('useAuth: Profile creation error (expected with mock):', profileError.message);
+          console.log('useAuth: Profile creation error:', profileError.message);
+          return { data: null, error: profileError };
         } else {
           console.log('useAuth: User profile created successfully');
         }
       }
 
       return { data, error: null };
-    } catch (error) {
-      console.log('useAuth: Expected error signing up (using mock):', error);
-      return { data: null, error };
+    } catch (error: any) {
+      console.log('useAuth: Unexpected error signing up:', error);
+      return { data: null, error: { message: 'An unexpected error occurred during sign up' } };
     }
   };
 
@@ -193,33 +176,53 @@ export const useAuth = () => {
       });
 
       if (error) {
-        console.log('useAuth: Sign in error (expected with mock):', error.message);
-        // For demo purposes, create a mock user
-        const mockUser: User = {
-          id: 'mock-user-signin',
-          firstName: 'Alex',
-          lastName: 'Johnson',
-          name: 'Alex Johnson',
-          email,
-          age: 26,
-          profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-          bio: 'Love exploring new places and meeting interesting people! Always up for an adventure.',
-          location: 'San Francisco, CA',
-          interests: ['Coffee', 'Hiking', 'Photography', 'Food', 'Music'],
-          personalityTraits: ['Outgoing', 'Adventurous', 'Creative'],
-          joinedActivities: [],
-          createdActivities: [],
-          connectedServices: [],
-        };
-        setUser(mockUser);
-        return { data: { user: mockUser }, error: null };
+        console.log('useAuth: Sign in error:', error.message);
+        
+        // Handle specific error cases
+        if (error.message.includes('Invalid login credentials') || 
+            error.message.includes('Email not confirmed') ||
+            error.message.includes('User not found')) {
+          return { 
+            data: null, 
+            error: { 
+              message: 'No account found with this email address. Please check your email or sign up for a new account.' 
+            } 
+          };
+        }
+        
+        if (error.message.includes('Invalid password') || 
+            error.message.includes('Wrong password')) {
+          return { 
+            data: null, 
+            error: { 
+              message: 'Incorrect password. Please try again.' 
+            } 
+          };
+        }
+
+        if (error.message.includes('Too many requests')) {
+          return { 
+            data: null, 
+            error: { 
+              message: 'Too many sign-in attempts. Please wait a few minutes before trying again.' 
+            } 
+          };
+        }
+
+        // Return the original error message for other cases
+        return { data: null, error };
       }
       
       console.log('useAuth: User signed in successfully');
       return { data, error: null };
-    } catch (error) {
-      console.log('useAuth: Expected error signing in (using mock):', error);
-      return { data: null, error };
+    } catch (error: any) {
+      console.log('useAuth: Unexpected error signing in:', error);
+      return { 
+        data: null, 
+        error: { 
+          message: 'Unable to connect to authentication service. Please check your internet connection and try again.' 
+        } 
+      };
     }
   };
 
