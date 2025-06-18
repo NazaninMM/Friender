@@ -1,196 +1,295 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ArrowRight, Shield, Sparkles, MapPin } from 'lucide-react';
+import { Users, ArrowRight, Shield, Sparkles, MapPin, Eye, EyeOff, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { User } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
 
-interface AuthScreenProps {
-  onLogin: (user: User) => void;
-}
-
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
-  const [step, setStep] = useState<'welcome' | 'signup'>('welcome');
+export const AuthScreen: React.FC = () => {
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const { signIn, signUp } = useAuth();
+  
   const [formData, setFormData] = useState({
-    name: '',
-    age: '',
-    location: '',
-    bio: '',
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    age: 18,
+    confirmPassword: '',
   });
 
-  const handleSignup = () => {
-    if (formData.name && formData.age && formData.location) {
-      const newUser: User = {
-        id: 'current-user',
-        name: formData.name,
-        age: parseInt(formData.age),
-        profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-        bio: formData.bio || 'New to Friender! Excited to meet amazing people through shared activities.',
-        location: formData.location,
-        interests: ['Social', 'Adventure', 'Food'],
-        personalityTraits: ['Friendly', 'Open-minded'],
-        joinedActivities: [],
-        createdActivities: [],
-      };
-      onLogin(newUser);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (mode === 'signin') {
+        const { error } = await signIn(formData.email, formData.password);
+        if (error) {
+          setError(error.message || 'Failed to sign in');
+        }
+      } else {
+        // Validation for signup
+        if (formData.password !== formData.confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+
+        if (formData.password.length < 6) {
+          setError('Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
+
+        if (!formData.firstName.trim() || !formData.lastName.trim()) {
+          setError('First name and last name are required');
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signUp(formData.email, formData.password, {
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          age: formData.age,
+          bio: 'New to Friender! Excited to meet amazing people through shared activities.',
+          location: 'San Francisco, CA',
+          interests: ['Social', 'Adventure', 'Food'],
+          personalityTraits: ['Friendly', 'Open-minded'],
+          connectedServices: [],
+        });
+
+        if (error) {
+          setError(error.message || 'Failed to create account');
+        }
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (step === 'signup') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
-        >
-          <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Join Friender</h2>
-              <p className="text-gray-600">Create your profile to start discovering amazing activities</p>
-            </div>
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      password: '',
+      firstName: '',
+      lastName: '',
+      age: 18,
+      confirmPassword: '',
+    });
+    setError('');
+  };
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <Input
-                  placeholder="Enter your name"
-                  value={formData.name}
-                  onChange={(value) => setFormData({ ...formData, name: value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
-                <Input
-                  type="number"
-                  placeholder="Enter your age"
-                  value={formData.age}
-                  onChange={(value) => setFormData({ ...formData, age: value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                <Input
-                  placeholder="City, State"
-                  value={formData.location}
-                  onChange={(value) => setFormData({ ...formData, location: value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bio (Optional)</label>
-                <textarea
-                  placeholder="Tell us a bit about yourself..."
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-20 transition-all duration-200 resize-none h-20"
-                />
-              </div>
-
-              <Button
-                onClick={handleSignup}
-                className="w-full mt-6"
-                disabled={!formData.name || !formData.age || !formData.location}
-              >
-                Start Exploring
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+  const switchMode = () => {
+    setMode(mode === 'signin' ? 'signup' : 'signin');
+    resetForm();
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md text-center"
+        className="w-full max-w-md"
       >
-        <div className="mb-12">
-          <motion.div
-            animate={{ 
-              rotate: [0, 5, -5, 0],
-              scale: [1, 1.05, 1] 
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              repeatDelay: 3
-            }}
-            className="w-24 h-24 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl"
-          >
-            <Users className="w-12 h-12 text-white" />
-          </motion.div>
-          
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Friender
-            </span>
-          </h1>
-          
-          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-            Make real friends through shared activities and experiences
-          </p>
-        </div>
+        <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {mode === 'signin' ? 'Welcome Back' : 'Join Friender'}
+            </h2>
+            <p className="text-gray-600">
+              {mode === 'signin' 
+                ? 'Sign in to continue your friendship journey' 
+                : 'Create your account to start discovering amazing activities'
+              }
+            </p>
+          </div>
 
-        <div className="space-y-4 mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex items-center justify-center space-x-3 text-gray-700"
-          >
-            <MapPin className="w-5 h-5 text-indigo-500" />
-            <span>Discover activities happening near you</span>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="flex items-center justify-center space-x-3 text-gray-700"
-          >
-            <Sparkles className="w-5 h-5 text-indigo-500" />
-            <span>Join group activities that match your interests</span>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex items-center justify-center space-x-3 text-gray-700"
-          >
-            <Shield className="w-5 h-5 text-indigo-500" />
-            <span>Build genuine friendships in a safe environment</span>
-          </motion.div>
-        </div>
+          {/* Error Message */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg"
+            >
+              <p className="text-red-700 text-sm">{error}</p>
+            </motion.div>
+          )}
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <Button
-            onClick={() => setStep('signup')}
-            size="lg"
-            className="w-full text-lg shadow-xl"
-          >
-            Start Making Friends
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-          
-          <p className="text-sm text-gray-500 mt-4">
-            By continuing, you agree to our Terms of Service and Privacy Policy
-          </p>
-        </motion.div>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'signup' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <UserIcon className="w-4 h-4 inline mr-1" />
+                      First Name
+                    </label>
+                    <Input
+                      placeholder="First name"
+                      value={formData.firstName}
+                      onChange={(value) => setFormData({ ...formData, firstName: value })}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Last Name
+                    </label>
+                    <Input
+                      placeholder="Last name"
+                      value={formData.lastName}
+                      onChange={(value) => setFormData({ ...formData, lastName: value })}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
+                  <Input
+                    type="number"
+                    placeholder="Age"
+                    value={formData.age.toString()}
+                    onChange={(value) => setFormData({ ...formData, age: parseInt(value) || 18 })}
+                    disabled={loading}
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Mail className="w-4 h-4 inline mr-1" />
+                Email
+              </label>
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={(value) => setFormData({ ...formData, email: value })}
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Lock className="w-4 h-4 inline mr-1" />
+                Password
+              </label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(value) => setFormData({ ...formData, password: value })}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <Input
+                  type="password"
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChange={(value) => setFormData({ ...formData, confirmPassword: value })}
+                  disabled={loading}
+                />
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full mt-6"
+              disabled={loading || !formData.email || !formData.password}
+            >
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>{mode === 'signin' ? 'Signing In...' : 'Creating Account...'}</span>
+                </div>
+              ) : (
+                <>
+                  <span>{mode === 'signin' ? 'Sign In' : 'Create Account'}</span>
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </>
+              )}
+            </Button>
+          </form>
+
+          {/* Switch Mode */}
+          <div className="mt-6 text-center">
+            <p className="text-gray-600">
+              {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}
+              <button
+                onClick={switchMode}
+                className="ml-2 text-blue-600 hover:text-blue-700 font-medium"
+                disabled={loading}
+              >
+                {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+              </button>
+            </p>
+          </div>
+
+          {/* Features */}
+          {mode === 'signup' && (
+            <div className="mt-8 space-y-3">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="flex items-center space-x-3 text-gray-700"
+              >
+                <MapPin className="w-5 h-5 text-blue-500" />
+                <span className="text-sm">Discover activities happening near you</span>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-center space-x-3 text-gray-700"
+              >
+                <Sparkles className="w-5 h-5 text-blue-500" />
+                <span className="text-sm">Join group activities that match your interests</span>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 }}
+                className="flex items-center space-x-3 text-gray-700"
+              >
+                <Shield className="w-5 h-5 text-blue-500" />
+                <span className="text-sm">Build genuine friendships in a safe environment</span>
+              </motion.div>
+            </div>
+          )}
+        </div>
       </motion.div>
     </div>
   );

@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from './hooks/useAuth';
-import { LandingPage } from './components/auth/LandingPage';
-import { SignupFormScreen } from './components/auth/SignupFormScreen';
-import { LocationPermissionScreen } from './components/auth/LocationPermissionScreen';
-import { SocialIntegrationScreen } from './components/auth/SocialIntegrationScreen';
+import { AuthScreen } from './components/auth/AuthScreen';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { HomeScreen } from './components/home/HomeScreen';
 import { ChatsList } from './components/chat/ChatsList';
@@ -17,15 +14,15 @@ import { HostRequestChatScreen } from './components/activity/HostRequestChatScre
 import { DirectChatScreen } from './components/chat/DirectChatScreen';
 import { CreateActivityModal } from './components/activity/CreateActivityModal';
 import { BottomNavigation } from './components/layout/BottomNavigation';
-import { Activity, CreateActivityData, User, SignupFormData, JoinRequest, DirectMessageChat, ChatMessage } from './types';
+import { Activity, CreateActivityData, User, JoinRequest, DirectMessageChat, ChatMessage } from './types';
 import { mockActivities } from './data/mockData';
 
-type AppScreen = 'landing' | 'signup-form' | 'location-permission' | 'social-integration' | 'loading' | 'main' | 'direct-chat' | 'settings' | 'activity-detail';
+type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail';
 type MainTab = 'home' | 'chats' | 'activities' | 'profile';
 
 function App() {
-  const { user, loading, login, logout } = useAuth();
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>('landing');
+  const { user, loading, signOut } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>('main');
   const [currentTab, setCurrentTab] = useState<MainTab>('home');
   const [activities, setActivities] = useState<Activity[]>(mockActivities);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
@@ -36,96 +33,6 @@ function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [directChats, setDirectChats] = useState<DirectMessageChat[]>([]);
-  
-  // Store signup data as user progresses through the flow
-  const [signupData, setSignupData] = useState<Partial<SignupFormData & { connectedServices: string[] }>>({});
-
-  const handleSignUp = () => {
-    setCurrentScreen('signup-form');
-  };
-
-  const handleSignupFormComplete = (formData: SignupFormData) => {
-    setSignupData(prev => ({ ...prev, ...formData }));
-    setCurrentScreen('location-permission');
-  };
-
-  const handleLocationAllow = () => {
-    setCurrentScreen('social-integration');
-  };
-
-  const handleLocationSkip = () => {
-    setCurrentScreen('social-integration');
-  };
-
-  const handleLocationBack = () => {
-    setCurrentScreen('signup-form');
-  };
-
-  const handleSignupFormBack = () => {
-    setCurrentScreen('landing');
-  };
-
-  const handleLogin = () => {
-    // For demo purposes, create a mock user
-    const mockUser: User = {
-      id: 'current-user',
-      firstName: 'Alex',
-      lastName: 'Johnson',
-      name: 'Alex Johnson',
-      email: 'alex.johnson@email.com',
-      age: 26,
-      profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-      bio: 'Love exploring new places and meeting interesting people!',
-      location: 'San Francisco, CA',
-      interests: ['Coffee', 'Hiking', 'Photography', 'Food', 'Music'],
-      personalityTraits: ['Outgoing', 'Adventurous', 'Creative'],
-      joinedActivities: [],
-      createdActivities: [],
-      connectedServices: [],
-    };
-    login(mockUser);
-    setCurrentScreen('main');
-  };
-
-  const handleSocialIntegrationComplete = (connectedServices: string[]) => {
-    // Store connected services and move to loading screen
-    setSignupData(prev => ({ ...prev, connectedServices }));
-    setCurrentScreen('loading');
-  };
-
-  const handleLoadingComplete = () => {
-    // Create user with all collected data
-    const newUser: User = {
-      id: 'current-user',
-      firstName: signupData.firstName || 'User',
-      lastName: signupData.lastName || '',
-      name: `${signupData.firstName || 'User'} ${signupData.lastName || ''}`.trim(),
-      email: signupData.email || '',
-      age: signupData.age || 18,
-      profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-      bio: 'New to Friender! Excited to meet amazing people through shared activities.',
-      location: 'San Francisco, CA', // This would come from location permission in a real app
-      interests: ['Social', 'Adventure', 'Food'], // These would be derived from connected services
-      personalityTraits: ['Friendly', 'Open-minded'], // These would be derived from AI analysis
-      joinedActivities: [],
-      createdActivities: [],
-      connectedServices: signupData.connectedServices || [],
-    };
-    
-    login(newUser);
-    setCurrentScreen('main');
-    
-    // Clear signup data
-    setSignupData({});
-  };
-
-  const handleSocialIntegrationSkip = () => {
-    handleSocialIntegrationComplete([]);
-  };
-
-  const handleSocialIntegrationBack = () => {
-    setCurrentScreen('location-permission');
-  };
 
   const handleSettings = () => {
     setCurrentScreen('settings');
@@ -137,8 +44,8 @@ function App() {
   };
 
   const handleLogout = () => {
-    logout();
-    setCurrentScreen('landing');
+    signOut();
+    setCurrentScreen('main');
     setCurrentTab('home');
   };
 
@@ -510,49 +417,8 @@ function App() {
     );
   }
 
-  if (currentScreen === 'landing') {
-    return (
-      <LandingPage 
-        onSignUp={handleSignUp}
-        onLogin={handleLogin}
-      />
-    );
-  }
-
-  if (currentScreen === 'signup-form') {
-    return (
-      <SignupFormScreen 
-        onComplete={handleSignupFormComplete}
-        onBack={handleSignupFormBack}
-      />
-    );
-  }
-
-  if (currentScreen === 'location-permission') {
-    return (
-      <LocationPermissionScreen 
-        onAllow={handleLocationAllow}
-        onSkip={handleLocationSkip}
-        onBack={handleLocationBack}
-      />
-    );
-  }
-
-  if (currentScreen === 'social-integration') {
-    return (
-      <SocialIntegrationScreen 
-        onComplete={handleSocialIntegrationComplete}
-        onBack={handleSocialIntegrationBack}
-      />
-    );
-  }
-
-  if (currentScreen === 'loading') {
-    return (
-      <LoadingScreen 
-        onComplete={handleLoadingComplete}
-      />
-    );
+  if (!user) {
+    return <AuthScreen />;
   }
 
   if (currentScreen === 'settings') {
