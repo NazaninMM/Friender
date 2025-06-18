@@ -8,32 +8,117 @@ console.log('Supabase Anon Key:', supabaseAnonKey ? 'Present' : 'Missing')
 
 let supabase: any;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables')
-  console.error('VITE_SUPABASE_URL:', supabaseUrl)
-  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing')
+// Check if we have valid Supabase credentials
+const hasValidSupabaseConfig = supabaseUrl && 
+  supabaseAnonKey && 
+  supabaseUrl !== 'your_supabase_url_here' && 
+  supabaseUrl !== 'your_supabase_project_url_here' &&
+  supabaseUrl.startsWith('https://') &&
+  supabaseAnonKey !== 'your_supabase_anon_key_here';
+
+if (!hasValidSupabaseConfig) {
+  console.warn('⚠️ Supabase not configured properly - using mock client');
+  console.log('To use real Supabase, update your .env file with valid credentials');
   
-  // Create a mock client to prevent app crashes
+  // Create a comprehensive mock client
   const mockClient = {
     auth: {
-      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-      signUp: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
-      signInWithPassword: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
-      signOut: () => Promise.resolve({ error: null })
+      getSession: () => {
+        console.log('Mock: getSession called');
+        return Promise.resolve({ data: { session: null }, error: null });
+      },
+      onAuthStateChange: (callback: any) => {
+        console.log('Mock: onAuthStateChange called');
+        // Simulate no user initially
+        setTimeout(() => callback('SIGNED_OUT', null), 100);
+        return { 
+          data: { 
+            subscription: { 
+              unsubscribe: () => console.log('Mock: Auth subscription unsubscribed') 
+            } 
+          } 
+        };
+      },
+      signUp: (credentials: any) => {
+        console.log('Mock: signUp called with:', credentials.email);
+        return Promise.resolve({ 
+          data: { 
+            user: { 
+              id: 'mock-user-id', 
+              email: credentials.email 
+            } 
+          }, 
+          error: null 
+        });
+      },
+      signInWithPassword: (credentials: any) => {
+        console.log('Mock: signInWithPassword called with:', credentials.email);
+        return Promise.resolve({ 
+          data: { 
+            user: { 
+              id: 'mock-user-id', 
+              email: credentials.email 
+            } 
+          }, 
+          error: null 
+        });
+      },
+      signOut: () => {
+        console.log('Mock: signOut called');
+        return Promise.resolve({ error: null });
+      }
     },
-    from: () => ({
-      select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }) }) }),
-      insert: () => Promise.resolve({ error: new Error('Supabase not configured') }),
-      update: () => ({ eq: () => Promise.resolve({ error: new Error('Supabase not configured') }) })
-    })
-  }
+    from: (table: string) => {
+      console.log('Mock: from called with table:', table);
+      return {
+        select: (columns: string) => {
+          console.log('Mock: select called with columns:', columns);
+          return {
+            eq: (column: string, value: any) => {
+              console.log('Mock: eq called with:', column, value);
+              return {
+                single: () => {
+                  console.log('Mock: single called');
+                  return Promise.resolve({ 
+                    data: null, 
+                    error: { message: 'Supabase not configured - using mock data' } 
+                  });
+                }
+              };
+            }
+          };
+        },
+        insert: (data: any) => {
+          console.log('Mock: insert called with:', data);
+          return Promise.resolve({ 
+            error: { message: 'Supabase not configured - using mock data' } 
+          });
+        },
+        update: (data: any) => {
+          console.log('Mock: update called with:', data);
+          return {
+            eq: (column: string, value: any) => {
+              console.log('Mock: update eq called with:', column, value);
+              return Promise.resolve({ 
+                error: { message: 'Supabase not configured - using mock data' } 
+              });
+            }
+          };
+        }
+      };
+    }
+  };
   
   supabase = mockClient;
-  console.log('Using mock Supabase client - app will show auth screen but database operations will not work');
 } else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-  console.log('Supabase client created successfully');
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('✅ Supabase client created successfully');
+  } catch (error) {
+    console.error('❌ Error creating Supabase client:', error);
+    // Fallback to mock client if creation fails
+    supabase = mockClient;
+  }
 }
 
 export { supabase };
