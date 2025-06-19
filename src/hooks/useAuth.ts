@@ -166,11 +166,14 @@ export const useAuth = () => {
       if (error) {
         console.log('useAuth: Sign up error:', error.message);
         
-        // Handle specific error cases
+        // Handle specific error cases - check both message and code
         const errorMessage = error.message.toLowerCase();
+        const errorCode = (error as any).code || '';
         
         if (errorMessage.includes('user already registered') || 
-            errorMessage.includes('user_already_exists')) {
+            errorMessage.includes('user_already_exists') ||
+            errorCode === 'user_already_exists' ||
+            errorMessage.includes('already registered')) {
           return { 
             data: null, 
             error: { 
@@ -253,7 +256,12 @@ export const useAuth = () => {
     } catch (error: any) {
       console.log('useAuth: Unexpected error signing up:', error);
       
-      if (error.message && error.message.includes('user_already_exists')) {
+      // Check for user already exists in the caught error as well
+      if (error.message && (
+          error.message.includes('user_already_exists') ||
+          error.message.includes('User already registered') ||
+          error.message.includes('already registered')
+        )) {
         return { 
           data: null, 
           error: { 
