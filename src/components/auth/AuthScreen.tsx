@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ArrowRight, Shield, Sparkles, MapPin, Eye, EyeOff, Mail, Lock, User as UserIcon, AlertCircle } from 'lucide-react';
+import { Users, ArrowRight, Shield, Sparkles, MapPin, Eye, EyeOff, Mail, Lock, User as UserIcon, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useAuth } from '../../hooks/useAuth';
 
-export const AuthScreen: React.FC = () => {
+interface AuthScreenProps {
+  onAuthSuccess?: (isNewUser: boolean) => void;
+  onBack?: () => void;
+}
+
+export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,9 +47,16 @@ export const AuthScreen: React.FC = () => {
           return;
         }
 
-        const { error } = await signIn(formData.email.trim(), formData.password);
-        if (error) {
-          setError(error.message);
+        console.log('AuthScreen: Attempting sign in...');
+        const { error: signInError } = await signIn(formData.email.trim(), formData.password);
+        
+        if (signInError) {
+          console.log('AuthScreen: Sign in error:', signInError.message);
+          setError(signInError.message);
+          setLoading(false);
+        } else {
+          console.log('AuthScreen: Sign in successful');
+          onAuthSuccess?.(false); // Existing user
         }
       } else {
         // Validation for signup
@@ -98,7 +110,8 @@ export const AuthScreen: React.FC = () => {
           return;
         }
 
-        const { error } = await signUp(formData.email.trim(), formData.password, {
+        console.log('AuthScreen: Attempting sign up...');
+        const { error: signUpError } = await signUp(formData.email.trim(), formData.password, {
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
           age: formData.age,
@@ -109,13 +122,18 @@ export const AuthScreen: React.FC = () => {
           connectedServices: [],
         });
 
-        if (error) {
-          setError(error.message);
+        if (signUpError) {
+          console.log('AuthScreen: Sign up error:', signUpError.message);
+          setError(signUpError.message);
+          setLoading(false);
+        } else {
+          console.log('AuthScreen: Sign up successful');
+          onAuthSuccess?.(true); // New user
         }
       }
     } catch (err: any) {
+      console.error('AuthScreen: Unexpected error:', err);
       setError('An unexpected error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -130,12 +148,16 @@ export const AuthScreen: React.FC = () => {
       confirmPassword: '',
     });
     setError('');
+    setLoading(false);
   };
 
   const switchMode = () => {
     setMode(mode === 'signin' ? 'signup' : 'signin');
     resetForm();
   };
+
+  // Check if the error is the "user already exists" error
+  const isUserAlreadyExistsError = error.includes('An account with this email already exists');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
@@ -145,20 +167,32 @@ export const AuthScreen: React.FC = () => {
         className="w-full max-w-md"
       >
         <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-white" />
+          {/* Header with Back Button */}
+          <div className="flex items-center mb-6">
+            {onBack && (
+              <Button
+                onClick={onBack}
+                variant="ghost"
+                size="sm"
+                className="p-2 mr-2"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            )}
+            <div className="flex-1 text-center">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {mode === 'signin' ? 'Welcome Back' : 'Join Friender'}
+              </h2>
+              <p className="text-gray-600">
+                {mode === 'signin' 
+                  ? 'Sign in to continue your friendship journey' 
+                  : 'Create your account to start discovering amazing activities'
+                }
+              </p>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {mode === 'signin' ? 'Welcome Back' : 'Join Friender'}
-            </h2>
-            <p className="text-gray-600">
-              {mode === 'signin' 
-                ? 'Sign in to continue your friendship journey' 
-                : 'Create your account to start discovering amazing activities'
-              }
-            </p>
           </div>
 
           {/* Error Message */}
@@ -170,18 +204,40 @@ export const AuthScreen: React.FC = () => {
             >
               <div className="flex items-start space-x-3">
                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <div>
+                <div className="flex-1">
                   <h4 className="text-red-800 font-medium mb-1">
                     {mode === 'signin' ? 'Sign In Failed' : 'Sign Up Failed'}
                   </h4>
                   <p className="text-red-700 text-sm leading-relaxed">{error}</p>
-                  {mode === 'signin' && error.includes('No account found') && (
-                    <div className="mt-3">
+                  
+                  {/* Special handling for "user already exists" error */}
+                  {mode === 'signup' && isUserAlreadyExistsError && (
+                    <div className="mt-3 pt-3 border-t border-red-200">
+                      <p className="text-red-700 text-sm mb-2">
+                        Would you like to sign in instead?
+                      </p>
                       <button
                         onClick={switchMode}
-                        className="text-sm text-red-600 hover:text-red-700 font-medium underline"
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors"
                       >
-                        Create a new account instead
+                        Switch to Sign In
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Fallback for other sign-in errors that might suggest account creation */}
+                  {mode === 'signin' && error.includes('No account found') && (
+                    <div className="mt-3 pt-3 border-t border-red-200">
+                      <p className="text-red-700 text-sm mb-2">
+                        Don't have an account yet?
+                      </p>
+                      <button
+                        onClick={switchMode}
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 bg-red-100 hover:bg-red-200 rounded-lg transition-colors"
+                      >
+                        Create New Account
+                        <ArrowRight className="w-3 h-3 ml-1" />
                       </button>
                     </div>
                   )}

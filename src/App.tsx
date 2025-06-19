@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from './hooks/useAuth';
+import { LandingPage } from './components/auth/LandingPage';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { SocialIntegrationScreen } from './components/auth/SocialIntegrationScreen';
+import { LocationPermissionScreen } from './components/auth/LocationPermissionScreen';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { HomeScreen } from './components/home/HomeScreen';
 import { ChatsList } from './components/chat/ChatsList';
@@ -17,6 +20,7 @@ import { BottomNavigation } from './components/layout/BottomNavigation';
 import { Activity, CreateActivityData, User, JoinRequest, DirectMessageChat, ChatMessage } from './types';
 import { mockActivities } from './data/mockData';
 
+type AppFlowState = 'landing' | 'auth' | 'socialIntegration' | 'locationPermission' | 'loadingPersonality' | 'mainApp';
 type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail';
 type MainTab = 'home' | 'chats' | 'activities' | 'profile';
 
@@ -24,6 +28,12 @@ function App() {
   console.log('App: Rendering App component');
   
   const { user, loading, signOut } = useAuth();
+  
+  // App flow state management
+  const [appFlowState, setAppFlowState] = useState<AppFlowState>('landing');
+  const [isNewUser, setIsNewUser] = useState(false);
+  
+  // Main app state management
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('main');
   const [currentTab, setCurrentTab] = useState<MainTab>('home');
   const [activities, setActivities] = useState<Activity[]>(mockActivities);
@@ -36,8 +46,73 @@ function App() {
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [directChats, setDirectChats] = useState<DirectMessageChat[]>([]);
 
-  console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None');
+  console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState);
 
+  // Handle authentication state changes
+  useEffect(() => {
+    if (!loading) {
+      if (user) {
+        // User is authenticated, go to main app
+        setAppFlowState('mainApp');
+      } else {
+        // No user, start from landing page
+        setAppFlowState('landing');
+      }
+    }
+  }, [user, loading]);
+
+  // Onboarding flow handlers
+  const handleSignUpFromLanding = () => {
+    setAppFlowState('auth');
+    setIsNewUser(true);
+  };
+
+  const handleLoginFromLanding = () => {
+    setAppFlowState('auth');
+    setIsNewUser(false);
+  };
+
+  const handleAuthSuccess = (newUser: boolean) => {
+    setIsNewUser(newUser);
+    if (newUser) {
+      // New user goes through social integration
+      setAppFlowState('socialIntegration');
+    } else {
+      // Existing user goes straight to main app
+      setAppFlowState('mainApp');
+    }
+  };
+
+  const handleSocialIntegrationComplete = (connectedServices: string[]) => {
+    console.log('Social integration completed with services:', connectedServices);
+    setAppFlowState('locationPermission');
+  };
+
+  const handleLocationPermissionComplete = () => {
+    setAppFlowState('loadingPersonality');
+  };
+
+  const handleLocationPermissionSkip = () => {
+    setAppFlowState('loadingPersonality');
+  };
+
+  const handlePersonalityLoadingComplete = () => {
+    setAppFlowState('mainApp');
+  };
+
+  const handleBackFromAuth = () => {
+    setAppFlowState('landing');
+  };
+
+  const handleBackFromSocialIntegration = () => {
+    setAppFlowState('auth');
+  };
+
+  const handleBackFromLocationPermission = () => {
+    setAppFlowState('socialIntegration');
+  };
+
+  // Main app handlers
   const handleSettings = () => {
     setCurrentScreen('settings');
   };
@@ -51,6 +126,7 @@ function App() {
     signOut();
     setCurrentScreen('main');
     setCurrentTab('home');
+    setAppFlowState('landing');
   };
 
   const createOrOpenDirectChat = (otherUser: User, activityContext?: { activityId: string; activityTitle: string; isJoinRequest?: boolean; joinRequestId?: string }) => {
@@ -409,8 +485,9 @@ function App() {
     setSelectedActivity(null);
   };
 
+  // Show loading screen during initial auth check
   if (loading) {
-    console.log('App: Showing loading screen');
+    console.log('App: Showing initial loading screen');
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
         <motion.div
@@ -422,11 +499,58 @@ function App() {
     );
   }
 
-  if (!user) {
-    console.log('App: Showing auth screen');
-    return <AuthScreen />;
+  // Render based on app flow state
+  if (appFlowState === 'landing') {
+    console.log('App: Showing landing page');
+    return (
+      <LandingPage 
+        onSignUp={handleSignUpFromLanding}
+        onLogin={handleLoginFromLanding}
+      />
+    );
   }
 
+  if (appFlowState === 'auth') {
+    console.log('App: Showing auth screen');
+    return (
+      <AuthScreen 
+        onAuthSuccess={handleAuthSuccess}
+        onBack={handleBackFromAuth}
+      />
+    );
+  }
+
+  if (appFlowState === 'socialIntegration') {
+    console.log('App: Showing social integration screen');
+    return (
+      <SocialIntegrationScreen 
+        onComplete={handleSocialIntegrationComplete}
+        onBack={handleBackFromSocialIntegration}
+      />
+    );
+  }
+
+  if (appFlowState === 'locationPermission') {
+    console.log('App: Showing location permission screen');
+    return (
+      <LocationPermissionScreen 
+        onAllow={handleLocationPermissionComplete}
+        onSkip={handleLocationPermissionSkip}
+        onBack={handleBackFromLocationPermission}
+      />
+    );
+  }
+
+  if (appFlowState === 'loadingPersonality') {
+    console.log('App: Showing personality loading screen');
+    return (
+      <LoadingScreen 
+        onComplete={handlePersonalityLoadingComplete}
+      />
+    );
+  }
+
+  // Main app screens
   console.log('App: Showing main app interface');
 
   if (currentScreen === 'settings') {
