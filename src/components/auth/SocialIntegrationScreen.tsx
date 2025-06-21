@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Instagram, Music, Gamepad2, Brain, Upload, Check, ArrowRight, X, FileText, AlertCircle, Video, ArrowLeft, Copy, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -48,23 +48,80 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showSpotifyModal, setShowSpotifyModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [spotifyConnecting, setSpotifyConnecting] = useState(false);
 
   const chatGptPrompt = `write everything you know or can confidently infer about me in a json file using the following datapoints as lowercase c++-safe variable names with underscores only. use previous conversations and contextual knowledge to fill in as many fields as possible, even if exact answers were not explicitly stated. only leave a field blank ("") if absolutely no information or strong guess is available. do not ask questions or request clarification. just return the final json object, fully populated and ready to be parsed by a program. here are the datapoints: first_name, age, gender, pronouns, sexual_orientation, relationship_status, nationality, location, timezone, languages_spoken, religion, ethnicity, political_views, education_level, occupation, work_schedule, student_status, income_range, living_situation, willingness_to_relocate, myers_briggs_type, enneagram_type, personality_type, outlook, competitiveness, humor_style, love_language, conflict_resolution_style, cleanliness_level, pet_peeves, sleep_schedule, wake_up_time, bedtime, diet, alcohol_use, smoking_habits, drug_use, fitness_level, exercise_routine, indoor_vs_outdoor, chronotype, workday_schedule, weekend_habits, preferred_activity_time, social_energy_level, favorite_music_genres, favorite_movies_shows, favorite_books, gaming_interests, travel_preferences, favorite_places_to_hang, sports, hobbies, cooking_interest, artistic_interests, communication_style, response_time_habits, conversation_depth, social_media_usage, contact_frequency, contact_preference, partying_preference, gifting_behavior, cooking_behavior, gpt_opinion, hangout_frequency, friendship_depth, friendship_duration_pref, online_friendship_ok, long_distance_friendship_ok, willingness_to_travel_to_meet, supportive_experience, comfort_with_vulnerability, noise_tolerance, cleanliness_habits, overnight_guest_opinion, sharing_items, room_temp_pref, pet_allergies, childcare_plans, home_decor_style, career_goals, work_life_balance, remote_vs_office, networking_interest, volunteering_interest, financial_priority, lazy_day_importance, privacy_boundaries, open_mindedness, supportiveness, inclusivity, core_values, social_justice_stance, dealbreakers, personality_conflicts_to_avoid, activities_to_avoid, top_3_values, ideal_friend_traits.`;
 
+  // Listen for Spotify OAuth completion
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'SPOTIFY_OAUTH_SUCCESS') {
+        setSpotifyConnecting(false);
+        setShowSpotifyModal(false);
+        // Mark Spotify as connected
+        setServices(prev =>
+          prev.map(service =>
+            service.id === 'spotify'
+              ? { ...service, connected: true }
+              : service
+          )
+        );
+      } else if (event.data.type === 'SPOTIFY_OAUTH_ERROR') {
+        setSpotifyConnecting(false);
+        setShowSpotifyModal(false);
+        alert('Failed to connect Spotify. Please try again.');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   const handleConnect = async (serviceId: string) => {
     if (serviceId === 'spotify') {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'spotify',
-        options: {
-          scopes: 'user-top-read user-read-email',
-          redirectTo: window.location.origin + '/spotify-sync'
-        },
-      });
-      if (error) {
-        console.error('Spotify connect error:', error.message);
+      try {
+        setSpotifyConnecting(true);
+        setShowSpotifyModal(true);
+        
+        // Import the Spotify OAuth function
+        const { getSpotifyAuthUrl } = await import('../../lib/spotify');
+        
+        // Generate Spotify OAuth URL
+        const authUrl = getSpotifyAuthUrl();
+        
+        // Open OAuth in a popup window
+        const popup = window.open(
+          authUrl,
+          'spotify-oauth',
+          'width=500,height=600,scrollbars=yes,resizable=yes'
+        );
+        
+        if (!popup) {
+          throw new Error('Popup blocked. Please allow popups for this site.');
+        }
+        
+        // Check if popup was closed
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed);
+            setSpotifyConnecting(false);
+            setShowSpotifyModal(false);
+          }
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Failed to initiate Spotify OAuth:', error);
+        setSpotifyConnecting(false);
+        setShowSpotifyModal(false);
+        // Show a more specific error message
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+        alert(`Failed to connect Spotify: ${errorMessage}\n\nPlease check the developer console for more details.`);
       }
       return;
     }
