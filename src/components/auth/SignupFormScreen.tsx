@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Users, Mail, Calendar, User } from 'lucide-react
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
+import { LocationCaptureScreen } from './LocationCaptureScreen';
 import { SignupFormData } from '../../types';
 
 interface SignupFormScreenProps {
@@ -18,7 +19,7 @@ export const SignupFormScreen: React.FC<SignupFormScreenProps> = ({ onComplete, 
     email: '',
     age: 18,
   });
-
+  const [showLocationCapture, setShowLocationCapture] = useState(false);
   const [errors, setErrors] = useState<Partial<SignupFormData>>({});
 
   const validateForm = (): boolean => {
@@ -49,17 +50,45 @@ export const SignupFormScreen: React.FC<SignupFormScreenProps> = ({ onComplete, 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onComplete(formData);
+      setShowLocationCapture(true);
     }
   };
 
+  const handleLocationComplete = (location: string) => {
+    const completeFormData = { ...formData, age: Number(formData.age), location };
+    onComplete(completeFormData);
+  };
+
+  const handleLocationSkip = () => {
+    onComplete({ ...formData, age: Number(formData.age) });
+  };
+
+  const handleLocationBack = () => {
+    setShowLocationCapture(false);
+  };
+
   const updateFormData = (field: keyof SignupFormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'age') {
+      setFormData(prev => ({ ...prev, [field]: typeof value === 'number' ? value : Number(value) || 18 }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
+
+  // Show location capture screen if we're in that step
+  if (showLocationCapture) {
+    return (
+      <LocationCaptureScreen
+        onComplete={handleLocationComplete}
+        onBack={handleLocationBack}
+        onSkip={handleLocationSkip}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 relative overflow-hidden">
@@ -186,7 +215,7 @@ export const SignupFormScreen: React.FC<SignupFormScreenProps> = ({ onComplete, 
                     type="number"
                     placeholder="Enter your age"
                     value={formData.age.toString()}
-                    onChange={(value) => updateFormData('age', parseInt(value) || 18)}
+                    onChange={(value) => updateFormData('age', Number(value) || 18)}
                     className={errors.age ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
                   />
                   {errors.age && (

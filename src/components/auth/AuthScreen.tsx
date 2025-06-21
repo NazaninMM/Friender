@@ -6,7 +6,7 @@ import { Input } from '../ui/Input';
 import { useAuth } from '../../hooks/useAuth';
 
 interface AuthScreenProps {
-  onAuthSuccess?: (isNewUser: boolean) => void;
+  onAuthSuccess?: () => void;
   onBack?: () => void;
 }
 
@@ -29,11 +29,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🚀 AuthScreen: Form submitted');
+    console.log('📝 Mode:', mode);
+    console.log('📊 Form data:', formData);
+    
     setError('');
     setLoading(true);
+    console.log('⏳ AuthScreen: Loading state set to true');
 
     try {
       if (mode === 'signin') {
+        console.log('🔐 AuthScreen: Processing sign in...');
         // Validate email format
         if (!formData.email.trim()) {
           setError('Please enter your email address');
@@ -47,18 +53,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
           return;
         }
 
-        console.log('AuthScreen: Attempting sign in...');
+        console.log('🔐 AuthScreen: Calling signIn...');
         const { error: signInError } = await signIn(formData.email.trim(), formData.password);
+        console.log('📊 AuthScreen: signIn result - error:', signInError);
         
         if (signInError) {
-          console.log('AuthScreen: Sign in error:', signInError.message);
+          console.log('❌ AuthScreen: Sign in error:', signInError.message);
           setError(signInError.message);
           setLoading(false);
         } else {
-          console.log('AuthScreen: Sign in successful');
-          onAuthSuccess?.(false); // Existing user
+          console.log('✅ AuthScreen: Sign in successful');
+          onAuthSuccess?.(); // Call without parameters
         }
       } else {
+        console.log('📝 AuthScreen: Processing sign up...');
         // Validation for signup
         if (!formData.firstName.trim()) {
           setError('First name is required');
@@ -110,29 +118,33 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
           return;
         }
 
-        console.log('AuthScreen: Attempting sign up...');
-        const { error: signUpError } = await signUp(formData.email.trim(), formData.password, {
+        console.log('✅ AuthScreen: All validations passed');
+        console.log('📝 AuthScreen: Calling signUp...');
+        
+        const userData = {
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
           age: formData.age,
-          bio: 'New to Friender! Excited to meet amazing people through shared activities.',
-          location: 'San Francisco, CA',
-          interests: ['Social', 'Adventure', 'Food'],
-          personalityTraits: ['Friendly', 'Open-minded'],
-          connectedServices: [],
-        });
+        };
+        console.log('👤 AuthScreen: User data for signup:', userData);
+        
+        const { error: signUpError } = await signUp(formData.email.trim(), formData.password, userData);
+        console.log('📊 AuthScreen: signUp result - error:', signUpError);
 
         if (signUpError) {
-          console.log('AuthScreen: Sign up error:', signUpError.message);
+          console.log('❌ AuthScreen: Sign up error:', signUpError.message);
           setError(signUpError.message);
           setLoading(false);
         } else {
-          console.log('AuthScreen: Sign up successful');
-          onAuthSuccess?.(true); // New user
+          console.log('✅ AuthScreen: Sign up successful');
+          console.log('🔄 AuthScreen: Calling onAuthSuccess...');
+          onAuthSuccess?.(); // Call without parameters
+          console.log('✅ AuthScreen: onAuthSuccess called');
         }
       }
     } catch (err: any) {
-      console.error('AuthScreen: Unexpected error:', err);
+      console.error('💥 AuthScreen: Unexpected error:', err);
+      console.error('💥 Error stack:', err.stack);
       setError('An unexpected error occurred. Please try again.');
       setLoading(false);
     }

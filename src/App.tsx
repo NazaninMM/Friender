@@ -31,7 +31,6 @@ function App() {
   
   // App flow state management
   const [appFlowState, setAppFlowState] = useState<AppFlowState>('landing');
-  const [isNewUser, setIsNewUser] = useState(false);
   
   // Main app state management
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('main');
@@ -50,36 +49,69 @@ function App() {
 
   // Handle authentication state changes
   useEffect(() => {
+    console.log('🔄 App: useEffect triggered');
+    console.log('📊 App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState);
+    console.log('👤 App: User details:', user ? {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      connectedServices: user.connectedServices
+    } : 'No user');
+    
     if (!loading) {
+      console.log('✅ App: Not loading, processing state...');
       if (user) {
-        // User is authenticated, go to main app
-        setAppFlowState('mainApp');
+        // Check if user has completed onboarding by looking at connected services
+        const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length > 0;
+        
+        console.log('👤 App: User found');
+        console.log('🔗 App: connectedServices:', user.connectedServices);
+        console.log('✅ App: hasCompletedOnboarding:', hasCompletedOnboarding);
+        
+        if (hasCompletedOnboarding) {
+          // User has completed onboarding, go to main app
+          console.log('🏠 App: Setting appFlowState to mainApp');
+          setAppFlowState('mainApp');
+        } else {
+          // New user or user hasn't completed onboarding, go to social integration
+          console.log('🔗 App: Setting appFlowState to socialIntegration');
+          setAppFlowState('socialIntegration');
+        }
       } else {
         // No user, start from landing page
+        console.log('🏠 App: No user, setting appFlowState to landing');
         setAppFlowState('landing');
       }
+    } else {
+      console.log('⏳ App: Still loading, not changing appFlowState');
     }
   }, [user, loading]);
 
   // Onboarding flow handlers
   const handleSignUpFromLanding = () => {
+    console.log('App: handleSignUpFromLanding - setting appFlowState to auth');
     setAppFlowState('auth');
-    setIsNewUser(true);
   };
 
   const handleLoginFromLanding = () => {
+    console.log('App: handleLoginFromLanding - setting appFlowState to auth');
     setAppFlowState('auth');
-    setIsNewUser(false);
   };
 
-  const handleAuthSuccess = (newUser: boolean) => {
-    setIsNewUser(newUser);
-    if (newUser) {
-      // New user goes through social integration
-      setAppFlowState('socialIntegration');
-    } else {
-      // Existing user goes straight to main app
-      setAppFlowState('mainApp');
+  const handleAuthSuccess = () => {
+    // This function is called when auth is successful
+    // The useEffect above will handle the transition based on user.connectedServices
+    console.log('App: handleAuthSuccess called - user will be redirected based on onboarding status');
+    
+    // Fallback: If we have a user but are still in auth state, force transition
+    if (user && appFlowState === 'auth') {
+      console.log('App: Fallback - forcing transition from auth state');
+      const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length > 0;
+      if (hasCompletedOnboarding) {
+        setAppFlowState('mainApp');
+      } else {
+        setAppFlowState('socialIntegration');
+      }
     }
   };
 

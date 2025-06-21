@@ -119,4 +119,5 @@ export interface SignupFormData {
   lastName: string;
   email: string;
   age: number;
+  location?: string;
 }
