@@ -4,6 +4,7 @@ import { Users, ArrowRight, Shield, Sparkles, MapPin, Eye, EyeOff, Mail, Lock, U
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useAuth } from '../../hooks/useAuth';
+import { LocationCaptureScreen } from './LocationCaptureScreen';
 
 interface AuthScreenProps {
   onAuthSuccess?: () => void;
@@ -15,6 +16,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showLocationCapture, setShowLocationCapture] = useState(false);
+  const [signupData, setSignupData] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    age: 18,
+    confirmPassword: '',
+  });
   
   const { signIn, signUp } = useAuth();
   
@@ -26,6 +36,81 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
     age: 18,
     confirmPassword: '',
   });
+
+  const handleLocationComplete = async (location: string) => {
+    console.log('📍 AuthScreen: Location captured:', location);
+    
+    try {
+      const userData = {
+        firstName: signupData.firstName.trim(),
+        lastName: signupData.lastName.trim(),
+        age: signupData.age,
+        location: location,
+      };
+      
+      console.log('👤 AuthScreen: User data for signup with location:', userData);
+      
+      const result = await signUp(signupData.email.trim(), signupData.password, userData);
+      console.log('📊 AuthScreen: signUp result:', result);
+
+      if (result.success) {
+        console.log('✅ AuthScreen: Sign up successful');
+        console.log('🔄 AuthScreen: Calling onAuthSuccess...');
+        onAuthSuccess?.();
+        console.log('✅ AuthScreen: onAuthSuccess called');
+      } else {
+        console.log('❌ AuthScreen: Sign up failed');
+        setError('Sign up failed. Please try again.');
+        setLoading(false);
+        setShowLocationCapture(false);
+      }
+    } catch (err: any) {
+      console.error('💥 AuthScreen: Unexpected error during signup:', err);
+      setError('An unexpected error occurred. Please try again.');
+      setLoading(false);
+      setShowLocationCapture(false);
+    }
+  };
+
+  const handleLocationSkip = async () => {
+    console.log('📍 AuthScreen: Location skipped');
+    
+    try {
+      const userData = {
+        firstName: signupData.firstName.trim(),
+        lastName: signupData.lastName.trim(),
+        age: signupData.age,
+        location: '', // Empty location if skipped
+      };
+      
+      console.log('👤 AuthScreen: User data for signup without location:', userData);
+      
+      const result = await signUp(signupData.email.trim(), signupData.password, userData);
+      console.log('📊 AuthScreen: signUp result:', result);
+
+      if (result.success) {
+        console.log('✅ AuthScreen: Sign up successful');
+        console.log('🔄 AuthScreen: Calling onAuthSuccess...');
+        onAuthSuccess?.();
+        console.log('✅ AuthScreen: onAuthSuccess called');
+      } else {
+        console.log('❌ AuthScreen: Sign up failed');
+        setError('Sign up failed. Please try again.');
+        setLoading(false);
+        setShowLocationCapture(false);
+      }
+    } catch (err: any) {
+      console.error('💥 AuthScreen: Unexpected error during signup:', err);
+      setError('An unexpected error occurred. Please try again.');
+      setLoading(false);
+      setShowLocationCapture(false);
+    }
+  };
+
+  const handleLocationBack = () => {
+    setShowLocationCapture(false);
+    setLoading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,28 +204,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
         }
 
         console.log('✅ AuthScreen: All validations passed');
-        console.log('📝 AuthScreen: Calling signUp...');
+        console.log('📍 AuthScreen: Proceeding to location capture...');
         
-        const userData = {
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          age: formData.age,
-        };
-        console.log('👤 AuthScreen: User data for signup:', userData);
-        
-        const { error: signUpError } = await signUp(formData.email.trim(), formData.password, userData);
-        console.log('📊 AuthScreen: signUp result - error:', signUpError);
-
-        if (signUpError) {
-          console.log('❌ AuthScreen: Sign up error:', signUpError.message);
-          setError(signUpError.message);
-          setLoading(false);
-        } else {
-          console.log('✅ AuthScreen: Sign up successful');
-          console.log('🔄 AuthScreen: Calling onAuthSuccess...');
-          onAuthSuccess?.(); // Call without parameters
-          console.log('✅ AuthScreen: onAuthSuccess called');
-        }
+        // Store the form data and proceed to location capture
+        setSignupData(formData);
+        setShowLocationCapture(true);
+        setLoading(false);
       }
     } catch (err: any) {
       console.error('💥 AuthScreen: Unexpected error:', err);
@@ -170,6 +239,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
 
   // Check if the error is the "user already exists" error
   const isUserAlreadyExistsError = error.includes('An account with this email already exists');
+
+  // Show location capture screen if we're in that step
+  if (showLocationCapture) {
+    return (
+      <LocationCaptureScreen
+        onComplete={handleLocationComplete}
+        onBack={handleLocationBack}
+        onSkip={handleLocationSkip}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">

@@ -176,7 +176,6 @@ const getDefaultPersonality = (): PersonalityInsights => {
 // Analyze personality from text (for ChatGPT data)
 export const analyzeFromText = (textData: string): PersonalityInsights => {
   // This would analyze text patterns, word choice, topics, etc.
-  // For now, return a mock analysis
   console.log('Analyzing personality from text data...');
   
   // In a real implementation, this would use NLP to analyze:
@@ -186,6 +185,7 @@ export const analyzeFromText = (textData: string): PersonalityInsights => {
   // - Social references (extraversion)
   // - Cooperative language (agreeableness)
   
+  // For now, return default personality insights
   return getDefaultPersonality();
 };
 

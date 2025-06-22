@@ -18,7 +18,7 @@ import { DirectChatScreen } from './components/chat/DirectChatScreen';
 import { CreateActivityModal } from './components/activity/CreateActivityModal';
 import { BottomNavigation } from './components/layout/BottomNavigation';
 import { Activity, CreateActivityData, User, JoinRequest, DirectMessageChat, ChatMessage } from './types';
-import { mockActivities } from './data/mockData';
+import { activityService } from './lib/database';
 
 type AppFlowState = 'landing' | 'auth' | 'socialIntegration' | 'locationPermission' | 'loadingPersonality' | 'mainApp';
 type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail';
@@ -35,7 +35,7 @@ function App() {
   // Main app state management
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('main');
   const [currentTab, setCurrentTab] = useState<MainTab>('home');
-  const [activities, setActivities] = useState<Activity[]>(mockActivities);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [selectedJoinRequest, setSelectedJoinRequest] = useState<JoinRequest | null>(null);
   const [selectedDirectChat, setSelectedDirectChat] = useState<DirectMessageChat | null>(null);
@@ -86,6 +86,14 @@ function App() {
       console.log('⏳ App: Still loading, not changing appFlowState');
     }
   }, [user, loading]);
+
+  useEffect(() => {
+    async function fetchActivities() {
+      const activities = await activityService.getAllActivities();
+      setActivities(activities);
+    }
+    fetchActivities();
+  }, []);
 
   // Onboarding flow handlers
   const handleSignUpFromLanding = () => {
@@ -644,8 +652,11 @@ function App() {
   }
 
   const renderCurrentTab = () => {
+    console.log('🔄 App: renderCurrentTab called with currentTab:', currentTab);
+    
     switch (currentTab) {
       case 'home':
+        console.log('🏠 App: Rendering HomeScreen');
         return (
           <HomeScreen 
             activities={activities}
@@ -656,6 +667,7 @@ function App() {
           />
         );
       case 'chats':
+        console.log('💬 App: Rendering ChatsList');
         return (
           <ChatsList 
             activities={activities}
@@ -668,6 +680,7 @@ function App() {
           />
         );
       case 'activities':
+        console.log('🎯 App: Rendering ActivitiesList');
         return (
           <ActivitiesList 
             activities={activities}
@@ -676,14 +689,15 @@ function App() {
           />
         );
       case 'profile':
+        console.log('👤 App: Rendering ProfileScreen');
         return (
           <ProfileScreen 
-            user={user!}
             onSettings={handleSettings}
             onLogout={handleLogout}
           />
         );
       default:
+        console.log('❓ App: Unknown tab:', currentTab);
         return null;
     }
   };

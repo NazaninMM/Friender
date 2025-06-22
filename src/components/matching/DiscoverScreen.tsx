@@ -3,25 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, X, MapPin, Music, MessageCircle, Star, Users } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Match, User } from '../../types';
-import { generateMatches } from '../../data/mockData';
+import { User } from '../../types';
+import { userService } from '../../lib/database';
 
 interface DiscoverScreenProps {
   user: User;
-  onMatch: (match: Match) => void;
+  onMatch: (match: User) => void;
 }
 
 export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ user, onMatch }) => {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<User[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading matches
-    setTimeout(() => {
-      setMatches(generateMatches(user));
-      setIsLoading(false);
-    }, 1500);
+    async function fetchMatches() {
+      const allUsers = await userService.getAllUsers();
+      // Filter out the current user and any logic for matching
+      setMatches(allUsers.filter(u => u.id !== user.id));
+    }
+    fetchMatches();
   }, [user]);
 
   const handleSwipe = (action: 'like' | 'pass') => {
@@ -104,8 +105,8 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ user, onMatch })
             <Card className="mb-6 overflow-hidden">
               <div className="relative">
                 <img
-                  src={currentMatch.user.profileImage}
-                  alt={currentMatch.user.name}
+                  src={currentMatch.profileImage}
+                  alt={currentMatch.name}
                   className="w-full h-96 object-cover"
                 />
                 
@@ -113,61 +114,61 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ user, onMatch })
                   <div className="flex items-center space-x-1">
                     <Star className="w-4 h-4 text-yellow-400" />
                     <span className="text-white font-medium text-sm">
-                      {Math.round(currentMatch.similarityScore * 100)}%
+                      {/* {Math.round(currentMatch.similarityScore * 100)}% */}
                     </span>
                   </div>
                 </div>
 
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6">
                   <h3 className="text-2xl font-bold text-white mb-1">
-                    {currentMatch.user.name}, {currentMatch.user.age}
+                    {currentMatch.name}, {currentMatch.age}
                   </h3>
                   <div className="flex items-center text-white/90 mb-2">
                     <MapPin className="w-4 h-4 mr-1" />
-                    <span className="text-sm">{currentMatch.user.location}</span>
+                    <span className="text-sm">{currentMatch.location}</span>
                   </div>
                 </div>
               </div>
 
               <div className="p-6">
                 <div className="mb-4">
-                  <p className="text-gray-700 leading-relaxed">{currentMatch.user.bio}</p>
+                  <p className="text-gray-700 leading-relaxed">{currentMatch.bio}</p>
                 </div>
 
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-semibold text-gray-900">Why You'll Be Great Friends</h4>
                     <span className="text-sm text-primary-600 font-medium">
-                      {Math.round(currentMatch.similarityScore * 100)}% compatible
+                      {/* {Math.round(currentMatch.similarityScore * 100)}% compatible */}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 bg-primary-50 rounded-lg p-3">
-                    {currentMatch.matchReason}
+                    {/* {currentMatch.matchReason} */}
                   </p>
                 </div>
 
                 <div className="mb-6">
                   <h4 className="font-semibold text-gray-900 mb-3">Shared Interests</h4>
                   <div className="flex flex-wrap gap-2">
-                    {currentMatch.sharedInterests.slice(0, 6).map((interest, index) => (
+                    {/* {currentMatch.sharedInterests.slice(0, 6).map((interest, index) => (
                       <span
                         key={index}
                         className="px-3 py-1 bg-gradient-to-r from-primary-100 to-secondary-100 text-primary-700 rounded-full text-sm font-medium"
                       >
                         {interest}
                       </span>
-                    ))}
+                    ))} */}
                   </div>
                 </div>
 
-                {currentMatch.user.topArtists.length > 0 && (
+                {/* {currentMatch.topArtists.length > 0 && (
                   <div className="mb-6">
                     <div className="flex items-center space-x-2 mb-2">
                       <Music className="w-4 h-4 text-gray-600" />
                       <h4 className="font-semibold text-gray-900">Music Taste</h4>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {currentMatch.user.topArtists.slice(0, 3).map((artist, index) => (
+                      {currentMatch.topArtists.slice(0, 3).map((artist, index) => (
                         <span
                           key={index}
                           className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-sm"
@@ -177,7 +178,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ user, onMatch })
                       ))}
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
             </Card>
           </motion.div>

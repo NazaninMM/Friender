@@ -40,7 +40,7 @@ export const ActivityChatScreen: React.FC<ActivityChatScreenProps> = ({
       id: '3',
       userId: activity.attendees[1]?.id || 'other-user',
       userName: activity.attendees[1]?.name || 'Maya',
-      userImage: activity.attendees[1]?.profileImage || 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400',
+      userImage: activity.attendees[1]?.profileImage || '',
       message: "This sounds amazing! Should we bring anything specific?",
       timestamp: new Date(Date.now() - 30 * 60 * 1000),
       type: 'text',

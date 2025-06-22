@@ -4,7 +4,7 @@ import { ArrowLeft, MapPin, Clock, Users, MessageCircle, Calendar, Tag, Heart, S
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Activity, User } from '../../types';
-import { categoryIcons, categoryColors } from '../../data/mockData';
+import { categoryIcons, categoryColors } from '../../constants/categories';
 
 interface ActivityDetailScreenProps {
   activity: Activity;

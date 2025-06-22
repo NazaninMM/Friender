@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
 import { CreateActivityData, ActivityCategory } from '../../types';
-import { categoryIcons, categoryColors } from '../../data/mockData';
+import { categoryIcons, categoryColors } from '../../constants/categories';
 
 interface CreateActivityScreenProps {
   onCreateActivity: (activity: CreateActivityData) => void;

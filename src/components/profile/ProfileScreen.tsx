@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Edit, 
@@ -24,21 +24,116 @@ import {
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { User } from '../../types';
+import { userService } from '../../lib/database';
+import { DefaultProfileImage } from '../ui/DefaultProfileImage';
+import { useAuth } from '../../hooks/useAuth';
 
 interface ProfileScreenProps {
-  user: User;
   onEdit?: () => void;
   onSettings?: () => void;
   onLogout?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ 
-  user, 
   onEdit, 
   onSettings,
   onLogout 
 }) => {
+  const { user, loading, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'about' | 'activities' | 'connections'>('about');
+  const [isUploading, setIsUploading] = useState(false);
+  const [profileImage, setProfileImage] = useState(user?.profileImage ?? '');
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [newLocation, setNewLocation] = useState(user?.location ?? '');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Sync local profileImage state with user prop
+  useEffect(() => {
+    if (user) {
+      setProfileImage(user.profileImage);
+      setNewLocation(user.location);
+    }
+  }, [user?.profileImage, user?.location]);
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            {loading ? 'Loading profile...' : 'No user found'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPEG, PNG, GIF, etc.)');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file is too large. Please select an image smaller than 5MB.');
+      return;
+    }
+    
+    setIsUploading(true);
+    try {
+      // Upload the image to Supabase Storage
+      const url = await userService.uploadProfileImage(user.id, file);
+      if (url) {
+        // Update the profile in the database and user state
+        await updateProfile({ profileImage: url });
+        setProfileImage(url);
+        console.log('✅ Profile image updated successfully');
+      } else {
+        throw new Error('Failed to upload image');
+      }
+    } catch (error) {
+      console.error('❌ Error updating profile image:', error);
+      alert('Failed to update profile image. Please try again.');
+    } finally {
+      setIsUploading(false);
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleLocationEdit = () => {
+    setIsEditingLocation(true);
+  };
+
+  const handleLocationSave = async () => {
+    if (newLocation.trim() !== user.location) {
+      try {
+        await updateProfile({ location: newLocation.trim() });
+        console.log('✅ Location updated successfully');
+      } catch (error) {
+        console.error('❌ Error updating location:', error);
+        alert('Failed to update location. Please try again.');
+        setNewLocation(user.location); // Reset to original
+      }
+    }
+    setIsEditingLocation(false);
+  };
+
+  const handleLocationCancel = () => {
+    setNewLocation(user.location);
+    setIsEditingLocation(false);
+  };
 
   const stats = [
     { label: 'Activities Joined', value: user.joinedActivities.length + 8, icon: Calendar, color: 'text-blue-600' },
@@ -47,68 +142,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     { label: 'Profile Views', value: 156, icon: Activity, color: 'text-purple-600' },
   ];
 
-  const recentActivities = [
-    {
-      id: '1',
-      title: 'Coffee & Chat at Blue Bottle',
-      type: 'joined',
-      date: '2 days ago',
-      participants: 6,
-      status: 'completed'
-    },
-    {
-      id: '2',
-      title: 'Weekend Hiking Adventure',
-      type: 'created',
-      date: '1 week ago',
-      participants: 8,
-      status: 'completed'
-    },
-    {
-      id: '3',
-      title: 'Board Game Night',
-      type: 'joined',
-      date: '2 weeks ago',
-      participants: 10,
-      status: 'completed'
-    }
-  ];
-
-  const connections = [
-    {
-      id: '1',
-      name: 'Maya Chen',
-      image: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400',
-      mutualActivities: 3,
-      lastActivity: 'Coffee & Chat'
-    },
-    {
-      id: '2',
-      name: 'Jordan Kim',
-      image: 'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=400',
-      mutualActivities: 2,
-      lastActivity: 'Hiking Adventure'
-    },
-    {
-      id: '3',
-      name: 'Sam Rodriguez',
-      image: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=400',
-      mutualActivities: 1,
-      lastActivity: 'Board Game Night'
-    }
-  ];
-
   const connectedServices = [
     { name: 'Instagram', icon: Instagram, connected: true, color: 'text-pink-600' },
     { name: 'Spotify', icon: Music, connected: true, color: 'text-green-600' },
     { name: 'OpenAI', icon: Brain, connected: false, color: 'text-purple-600' },
-  ];
-
-  const achievements = [
-    { title: 'Social Butterfly', description: 'Joined 10+ activities', icon: '🦋', earned: true },
-    { title: 'Community Builder', description: 'Created 5+ activities', icon: '🏗️', earned: true },
-    { title: 'Friend Magnet', description: 'Made 20+ connections', icon: '🧲', earned: true },
-    { title: 'Explorer', description: 'Tried 5+ activity types', icon: '🗺️', earned: false },
   ];
 
   return (
@@ -119,113 +156,143 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             <div className="flex items-center space-x-2">
-              <Button
-                onClick={onEdit}
-                variant="ghost"
-                size="sm"
-                className="p-2"
-              >
-                <Edit className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-2"
-              >
-                <Share className="w-5 h-5" />
-              </Button>
-              <Button
+              <button
                 onClick={onSettings}
-                variant="ghost"
-                size="sm"
-                className="p-2"
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <Settings className="w-5 h-5" />
-              </Button>
+              </button>
+              <button
+                onClick={onLogout}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto p-4 pb-24">
-        {/* Profile Header */}
+      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        {/* Profile Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          transition={{ duration: 0.5 }}
         >
-          <Card className="overflow-hidden">
-            {/* Cover Photo */}
-            <div className="relative h-32 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500">
-              <div className="absolute inset-0 bg-black/20"></div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute top-3 right-3 p-2 bg-black/20 backdrop-blur-sm text-white hover:bg-black/30"
-              >
-                <Camera className="w-4 h-4" />
-              </Button>
+          <Card className="relative overflow-hidden">
+            {/* Profile Image Section */}
+            <div className="relative">
+              <div className="w-full h-48 bg-gradient-to-br from-blue-500 to-indigo-600 relative">
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt={`${user.name}'s profile`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <DefaultProfileImage name={user.name} className="w-full h-full" />
+                )}
+                {/* Edit Image Button */}
+                <div className="absolute bottom-4 right-4">
+                  <Button
+                    onClick={handleImageButtonClick}
+                    className="w-10 h-10 rounded-full p-0 bg-white/90 hover:bg-white shadow-lg"
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />
+                    ) : (
+                      <Camera className="w-3 h-3" />
+                    )}
+                  </Button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleFileChange}
+                    disabled={isUploading}
+                  />
+                  {isUploading && (
+                    <div className="absolute -bottom-8 left-0 right-0 text-xs text-blue-600 bg-white/90 text-center py-1 rounded">
+                      Uploading image...
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Profile Info */}
-            <div className="relative px-6 pb-6">
-              {/* Profile Picture */}
-              <div className="absolute -top-12 left-6">
-                <div className="relative">
-                  <img
-                    src={user.profileImage}
-                    alt={user.name}
-                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute bottom-0 right-0 p-1 bg-blue-600 text-white rounded-full hover:bg-blue-700"
-                  >
-                    <Camera className="w-3 h-3" />
-                  </Button>
+            <div className="pt-16">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                    {user.firstName} {user.lastName}
+                  </h2>
+                  <div className="flex items-center text-gray-600 mb-2">
+                    <MapPin className="w-4 h-4 mr-1" />
+                    {isEditingLocation ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={newLocation}
+                          onChange={(e) => setNewLocation(e.target.value)}
+                          className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500"
+                          placeholder="Enter your location"
+                        />
+                        <button
+                          onClick={handleLocationSave}
+                          className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={handleLocationCancel}
+                          className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm">{user.location || 'No location set'}</span>
+                        <button
+                          onClick={handleLocationEdit}
+                          className="text-xs text-blue-500 hover:text-blue-700"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1 bg-yellow-50 px-3 py-1 rounded-full">
+                  <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                  <span className="text-sm font-medium text-yellow-700">4.9</span>
                 </div>
               </div>
 
-              <div className="pt-16">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                      {user.firstName} {user.lastName}
-                    </h2>
-                    <div className="flex items-center text-gray-600 mb-2">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      <span className="text-sm">{user.location}</span>
-                    </div>
+              <p className="text-gray-700 leading-relaxed mb-4">{user.bio}</p>
+
+              {/* Quick Stats */}
+              <div className="grid grid-cols-4 gap-3 py-4 border-t border-gray-100">
+                {stats.map((stat, index) => (
+                  <div key={index} className="text-center">
+                    <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
+                    <div className="text-xs text-gray-600 leading-tight">{stat.label}</div>
                   </div>
-                  <div className="flex items-center space-x-1 bg-yellow-50 px-3 py-1 rounded-full">
-                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                    <span className="text-sm font-medium text-yellow-700">4.9</span>
-                  </div>
-                </div>
+                ))}
+              </div>
 
-                <p className="text-gray-700 leading-relaxed mb-4">{user.bio}</p>
-
-                {/* Quick Stats */}
-                <div className="grid grid-cols-4 gap-3 py-4 border-t border-gray-100">
-                  {stats.map((stat, index) => (
-                    <div key={index} className="text-center">
-                      <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
-                      <div className="text-xs text-gray-600 leading-tight">{stat.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-3 pt-4 border-t border-gray-100">
-                  <Button className="flex-1 flex items-center justify-center space-x-2">
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Message</span>
-                  </Button>
-                  <Button variant="outline" className="flex-1">
-                    Connect
-                  </Button>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex space-x-3 pt-4 border-t border-gray-100">
+                <Button className="flex-1 flex items-center justify-center space-x-2">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Message</span>
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  Connect
+                </Button>
               </div>
             </div>
           </Card>
@@ -339,32 +406,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   ))}
                 </div>
               </Card>
-
-              {/* Achievements */}
-              <Card className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                  <Award className="w-5 h-5 mr-2 text-yellow-500" />
-                  Achievements
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {achievements.map((achievement, index) => (
-                    <div
-                      key={index}
-                      className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                        achievement.earned
-                          ? 'border-yellow-200 bg-yellow-50'
-                          : 'border-gray-200 bg-gray-50 opacity-60'
-                      }`}
-                    >
-                      <div className="text-2xl mb-1">{achievement.icon}</div>
-                      <h4 className="font-medium text-gray-900 text-sm mb-1">
-                        {achievement.title}
-                      </h4>
-                      <p className="text-xs text-gray-600">{achievement.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
             </>
           )}
 
@@ -372,77 +413,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Card className="p-6">
               <h3 className="font-semibold text-gray-900 mb-4">Recent Activities</h3>
               <div className="space-y-4">
-                {recentActivities.map((activity, index) => (
-                  <div key={activity.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      activity.type === 'created' 
-                        ? 'bg-blue-100 text-blue-600' 
-                        : 'bg-green-100 text-green-600'
-                    }`}>
-                      {activity.type === 'created' ? <Users className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 text-sm">{activity.title}</h4>
-                      <div className="flex items-center space-x-3 text-xs text-gray-600">
-                        <span>{activity.type === 'created' ? 'Created' : 'Joined'}</span>
-                        <span>•</span>
-                        <span>{activity.participants} participants</span>
-                        <span>•</span>
-                        <span>{activity.date}</span>
-                      </div>
-                    </div>
-                    <div className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                      {activity.status}
-                    </div>
-                  </div>
-                ))}
+                <p className="text-gray-600 text-center py-8">No recent activities to show</p>
               </div>
             </Card>
           )}
 
           {activeTab === 'connections' && (
             <Card className="p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Friends ({connections.length})</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">Friends</h3>
               <div className="space-y-4">
-                {connections.map((connection, index) => (
-                  <div key={connection.id} className="flex items-center space-x-4">
-                    <img
-                      src={connection.image}
-                      alt={connection.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{connection.name}</h4>
-                      <p className="text-sm text-gray-600">
-                        {connection.mutualActivities} mutual activities • Last: {connection.lastActivity}
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <MessageCircle className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
+                <p className="text-gray-600 text-center py-8">No friends to show</p>
               </div>
             </Card>
           )}
-        </motion.div>
-
-        {/* Settings Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="space-y-3"
-        >
-          
-          <Button
-            variant="outline"
-            className="w-full flex items-center justify-center space-x-2 text-red-600 border-red-300 hover:bg-red-50"
-            onClick={onLogout}
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
-          </Button>
         </motion.div>
       </div>
     </div>

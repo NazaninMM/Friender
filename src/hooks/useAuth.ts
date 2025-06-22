@@ -91,7 +91,7 @@ export const useAuth = () => {
       console.log('📊 useAuth: Profile fetch result - data:', data, 'error:', error);
 
       if (error) {
-        console.log('⚠️ useAuth: Profile fetch error, using mock data:', error.message);
+        console.log('⚠️ useAuth: Profile fetch error:', error.message);
         
         // Check if it's a "not found" error (profile doesn't exist)
         if (error.message && (
@@ -99,46 +99,14 @@ export const useAuth = () => {
           error.message.includes('not found') ||
           error.message.includes('timed out')
         )) {
-          console.log('📝 useAuth: Profile not found, creating mock user profile');
-          // Create mock user profile when database isn't available or profile doesn't exist
-          const mockUser: User = {
-            id: userId,
-            firstName: 'Alex',
-            lastName: 'Johnson',
-            name: 'Alex Johnson',
-            email: 'alex.johnson@email.com',
-            age: 26,
-            profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-            bio: 'Love exploring new places and meeting interesting people! Always up for an adventure.',
-            location: 'San Francisco, CA',
-            interests: ['Coffee', 'Hiking', 'Photography', 'Food', 'Music'],
-            personalityTraits: ['Outgoing', 'Adventurous', 'Creative'],
-            joinedActivities: [],
-            createdActivities: [],
-            connectedServices: [],
-          };
-          setUser(mockUser);
+          console.log('📝 useAuth: Profile not found');
+          setUser(null);
           return;
         }
         
-        // For other errors, still use mock data
-        const mockUser: User = {
-          id: userId,
-          firstName: 'Alex',
-          lastName: 'Johnson',
-          name: 'Alex Johnson',
-          email: 'alex.johnson@email.com',
-          age: 26,
-          profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-          bio: 'Love exploring new places and meeting interesting people! Always up for an adventure.',
-          location: 'San Francisco, CA',
-          interests: ['Coffee', 'Hiking', 'Photography', 'Food', 'Music'],
-          personalityTraits: ['Outgoing', 'Adventurous', 'Creative'],
-          joinedActivities: [],
-          createdActivities: [],
-          connectedServices: [],
-        };
-        setUser(mockUser);
+        // For other errors, also return null
+        console.log('❌ useAuth: Profile fetch failed');
+        setUser(null);
         return;
       }
 
@@ -151,7 +119,7 @@ export const useAuth = () => {
           name: `${data.first_name} ${data.last_name}`,
           email: data.email,
           age: data.age,
-          profileImage: data.profile_image || 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
+          profileImage: data.profile_image || '',
           bio: data.bio || '',
           location: data.location || '',
           interests: data.interests || [],
@@ -163,25 +131,8 @@ export const useAuth = () => {
         setUser(userProfile);
       }
     } catch (error) {
-      console.log('💥 useAuth: Error fetching profile, using mock:', error);
-      // Fallback to mock user
-      const mockUser: User = {
-        id: userId,
-        firstName: 'Alex',
-        lastName: 'Johnson',
-        name: 'Alex Johnson',
-        email: 'alex.johnson@email.com',
-        age: 26,
-        profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-        bio: 'Love exploring new places and meeting interesting people! Always up for an adventure.',
-        location: 'San Francisco, CA',
-        interests: ['Coffee', 'Hiking', 'Photography', 'Food', 'Music'],
-        personalityTraits: ['Outgoing', 'Adventurous', 'Creative'],
-        joinedActivities: [],
-        createdActivities: [],
-        connectedServices: [],
-      };
-      setUser(mockUser);
+      console.log('💥 useAuth: Error fetching profile:', error);
+      setUser(null);
     }
   };
 
@@ -269,7 +220,7 @@ export const useAuth = () => {
         name: `${userData.firstName} ${userData.lastName}`,
         email: authData.user.email!,
         age: userData.age,
-        profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
+        profileImage: '', // No default image, user can upload their own
         bio: userData.bio || '',
         location: userData.location || '',
         interests: userData.interests || [],
@@ -293,7 +244,7 @@ export const useAuth = () => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('useAuth: Attempting to sign in user...');
+      console.log('useAuth: Attempting sign in with:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -302,63 +253,17 @@ export const useAuth = () => {
 
       if (error) {
         console.log('useAuth: Sign in error:', error.message);
-        
-        // Handle specific error cases
-        if (error.message.includes('Invalid login credentials') || 
-            error.message.includes('Email not confirmed') ||
-            error.message.includes('User not found')) {
-          return { 
-            data: null, 
-            error: { 
-              message: 'No account found with this email address. Please check your email or sign up for a new account.' 
-            } 
-          };
-        }
-        
-        if (error.message.includes('Invalid password') || 
-            error.message.includes('Wrong password')) {
-          return { 
-            data: null, 
-            error: { 
-              message: 'Incorrect password. Please try again.' 
-            } 
-          };
-        }
-
-        if (error.message.includes('Too many requests')) {
-          return { 
-            data: null, 
-            error: { 
-              message: 'Too many sign-in attempts. Please wait a few minutes before trying again.' 
-            } 
-          };
-        }
-
-        // For development, create mock user on auth error
-        console.log('useAuth: Using mock login for development');
+        return { data: null, error };
       }
-      
-      // Create mock user for successful sign-in
-      const mockUser: User = {
-        id: data?.user?.id || 'mock-user-signin',
-        firstName: 'Alex',
-        lastName: 'Johnson',
-        name: 'Alex Johnson',
-        email: email,
-        age: 26,
-        profileImage: 'https://images.pexels.com/photos/1310522/pexels-photo-1310522.jpeg?auto=compress&cs=tinysrgb&w=400',
-        bio: 'Love exploring new places and meeting interesting people! Always up for an adventure.',
-        location: 'San Francisco, CA',
-        interests: ['Coffee', 'Hiking', 'Photography', 'Food', 'Music'],
-        personalityTraits: ['Outgoing', 'Adventurous', 'Creative'],
-        joinedActivities: [],
-        createdActivities: [],
-        connectedServices: [],
-      };
-      
-      setSupabaseUser(data?.user || null);
-      setUser(mockUser);
-      return { data, error: null };
+
+      if (data?.user) {
+        console.log('useAuth: Sign in successful');
+        setSupabaseUser(data.user);
+        // User profile will be fetched in the useEffect above
+        return { data, error: null };
+      }
+
+      return { data: null, error: { message: 'Sign in failed' } };
     } catch (error) {
       console.log('useAuth: Error signing in:', error);
       return { 
@@ -387,15 +292,20 @@ export const useAuth = () => {
     }
 
     try {
+      const updateData: any = {};
+      
+      if (updates.firstName) updateData.first_name = updates.firstName;
+      if (updates.lastName) updateData.last_name = updates.lastName;
+      if (updates.bio !== undefined) updateData.bio = updates.bio;
+      if (updates.location !== undefined) updateData.location = updates.location;
+      if (updates.interests) updateData.interests = updates.interests;
+      if (updates.personalityTraits) updateData.personality_traits = updates.personalityTraits;
+      if (updates.profileImage !== undefined) updateData.profile_image = updates.profileImage;
+      if (updates.connectedServices) updateData.connected_services = updates.connectedServices;
+
       const { data, error } = await supabase
         .from('profiles')
-        .update({
-          first_name: updates.firstName,
-          last_name: updates.lastName,
-          bio: updates.bio,
-          location: updates.location,
-          interests: updates.interests,
-        })
+        .update(updateData)
         .eq('id', user.id)
         .select()
         .single();
@@ -405,10 +315,30 @@ export const useAuth = () => {
       }
 
       if (data) {
-        fetchUserProfile(user.id); // Refresh user data
+        // Update the user state immediately with the new data
+        const updatedUser: User = {
+          id: data.id,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          name: `${data.first_name} ${data.last_name}`,
+          email: data.email,
+          age: data.age,
+          profileImage: data.profile_image || '',
+          bio: data.bio || '',
+          location: data.location || '',
+          interests: data.interests || [],
+          personalityTraits: data.personality_traits || [],
+          joinedActivities: data.joined_activities || [],
+          createdActivities: data.created_activities || [],
+          connectedServices: data.connected_services || [],
+        };
+        
+        setUser(updatedUser);
+        console.log('✅ Profile updated successfully:', updatedUser);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
+      throw error;
     }
   };
 

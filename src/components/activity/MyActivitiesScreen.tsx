@@ -4,7 +4,7 @@ import { Calendar, MapPin, Users, Clock, MessageCircle, Settings } from 'lucide-
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Activity, User } from '../../types';
-import { categoryIcons, categoryColors } from '../../data/mockData';
+import { categoryIcons, categoryColors } from '../../constants/categories';
 
 interface MyActivitiesScreenProps {
   activities: Activity[];
@@ -122,10 +122,7 @@ export const MyActivitiesScreen: React.FC<MyActivitiesScreenProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + index * 0.1 }}
               >
-                <Card 
-                  className="overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300"
-                  onClick={() => onOpenActivity(activity)}
-                >
+                <div onClick={() => onOpenActivity(activity)} className="overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300">
                   <div className="flex">
                     <div className="w-24 h-24 flex-shrink-0">
                       <img
@@ -187,7 +184,7 @@ export const MyActivitiesScreen: React.FC<MyActivitiesScreenProps> = ({
                       </div>
                     </div>
                   </div>
-                </Card>
+                </div>
               </motion.div>
             ))
           )}

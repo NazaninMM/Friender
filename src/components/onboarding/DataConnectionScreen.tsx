@@ -3,15 +3,13 @@ import { motion } from 'framer-motion';
 import { Instagram, Music, Brain, Check, ArrowRight, Shield, Upload, FileText, AlertCircle, Download } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { DataSource } from '../../types';
-import { mockDataSources } from '../../data/mockData';
 
 interface DataConnectionScreenProps {
   onComplete: () => void;
 }
 
 export const DataConnectionScreen: React.FC<DataConnectionScreenProps> = ({ onComplete }) => {
-  const [dataSources, setDataSources] = useState<DataSource[]>(mockDataSources);
+  const [dataSources, setDataSources] = useState<any[]>([]);
   const [step, setStep] = useState<'connect' | 'upload' | 'instructions'>('connect');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string>('');

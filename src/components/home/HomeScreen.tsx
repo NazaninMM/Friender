@@ -5,7 +5,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Activity, User, ActivityCategory } from '../../types';
-import { categoryIcons, categoryColors } from '../../data/mockData';
+import { categoryIcons, categoryColors } from '../../constants/categories';
 
 interface HomeScreenProps {
   activities: Activity[];
@@ -168,7 +168,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                   }`}
                 >
-                  {category === 'all' ? '🌟 All' : `${categoryIcons[category]} ${category.charAt(0).toUpperCase() + category.slice(1)}`}
+                  {category === 'all' ? '�� All' : `${category.charAt(0).toUpperCase() + category.slice(1)}`}
                 </button>
               ))}
             </div>
