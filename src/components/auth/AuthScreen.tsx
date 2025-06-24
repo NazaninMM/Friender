@@ -66,7 +66,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
       }
     } catch (err: any) {
       console.error('💥 AuthScreen: Unexpected error during signup:', err);
-      setError('An unexpected error occurred. Please try again.');
+      setError(err.message || 'An unexpected error occurred. Please try again.');
       setLoading(false);
       setShowLocationCapture(false);
     }
@@ -101,7 +101,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
       }
     } catch (err: any) {
       console.error('💥 AuthScreen: Unexpected error during signup:', err);
-      setError('An unexpected error occurred. Please try again.');
+      setError(err.message || 'An unexpected error occurred. Please try again.');
       setLoading(false);
       setShowLocationCapture(false);
     }

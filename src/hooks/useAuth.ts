@@ -151,28 +151,46 @@ export const useAuth = () => {
       console.log('📧 Email:', email);
       console.log('👤 User data:', userData);
 
+      // Prepare metadata for the signup
+      const signupMetadata = {
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        name: `${userData.firstName} ${userData.lastName}`,
+        age: userData.age,
+        bio: userData.bio || '',
+        location: userData.location || '',
+        interests: userData.interests || [],
+        personality_traits: userData.personalityTraits || [],
+        connected_services: userData.connectedServices || [],
+      };
+
+      console.log('📋 useAuth: Signup metadata:', signupMetadata);
+
       // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            name: `${userData.firstName} ${userData.lastName}`,
-            age: userData.age,
-            bio: userData.bio || '',
-            location: userData.location || '',
-            interests: userData.interests || [],
-            personality_traits: userData.personalityTraits || [],
-            connected_services: userData.connectedServices || [],
-          }
+          data: signupMetadata
         }
       });
 
       if (authError) {
         console.log('❌ useAuth: Auth signup error:', authError.message);
-        throw new Error(authError.message);
+        console.log('🔍 useAuth: Full auth error:', authError);
+        
+        // Provide more specific error messages
+        if (authError.message.includes('Database error saving new user')) {
+          throw new Error('There was an issue creating your profile. Please try again or contact support if the problem persists.');
+        } else if (authError.message.includes('User already registered')) {
+          throw new Error('An account with this email already exists. Please try signing in instead.');
+        } else if (authError.message.includes('Invalid email')) {
+          throw new Error('Please enter a valid email address.');
+        } else if (authError.message.includes('Password')) {
+          throw new Error('Password must be at least 6 characters long.');
+        } else {
+          throw new Error(authError.message);
+        }
       }
 
       if (!authData.user) {
@@ -182,34 +200,17 @@ export const useAuth = () => {
 
       console.log('✅ useAuth: Auth signup successful, user ID:', authData.user.id);
 
-      // The profile will be automatically created by the database trigger
-      // But we can also manually create it if needed
-      try {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            email: authData.user.email!,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            name: `${userData.firstName} ${userData.lastName}`,
-            age: userData.age,
-            bio: userData.bio || '',
-            location: userData.location || '',
-            interests: userData.interests || [],
-            personality_traits: userData.personalityTraits || [],
-            connected_services: userData.connectedServices || [],
-          });
+      // Wait a moment for the trigger to create the profile
+      console.log('⏳ useAuth: Waiting for profile creation...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-        if (profileError) {
-          console.log('⚠️ useAuth: Profile creation error (might already exist):', profileError.message);
-          // Don't throw here as the trigger might have already created the profile
-        } else {
-          console.log('✅ useAuth: Profile created successfully');
-        }
+      // Try to fetch the created profile
+      try {
+        await fetchUserProfile(authData.user.id);
+        console.log('✅ useAuth: Profile fetched after signup');
       } catch (profileError) {
-        console.log('⚠️ useAuth: Profile creation failed (might already exist):', profileError);
-        // Don't throw here as the trigger might have already created the profile
+        console.log('⚠️ useAuth: Could not fetch profile immediately after signup:', profileError);
+        // Don't throw here, the profile might be created by the trigger
       }
 
       // Set the user immediately after successful signup
