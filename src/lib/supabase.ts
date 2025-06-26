@@ -8,13 +8,10 @@ console.log('Supabase Anon Key:', supabaseAnonKey ? 'Present' : 'Missing')
 
 let supabase: any;
 
-// Check if we have valid Supabase credentials
+// Simplified check for valid Supabase credentials
 const hasValidSupabaseConfig = supabaseUrl && 
   supabaseAnonKey && 
-  supabaseUrl !== 'your_supabase_url_here' && 
-  supabaseUrl !== 'your_supabase_project_url_here' &&
-  supabaseUrl.startsWith('https://') &&
-  supabaseAnonKey !== 'your_supabase_anon_key_here';
+  supabaseUrl.startsWith('https://');
 
 if (!hasValidSupabaseConfig) {
   console.warn('⚠️ Supabase not configured properly - using mock client');
