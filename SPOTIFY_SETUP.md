@@ -17,7 +17,7 @@ This guide will help you set up Spotify OAuth integration for your Friender app 
    - **App name**: Friender (or your preferred name)
    - **App description**: Music-based personality matching for social activities
    - **Website**: Your app's domain (e.g., `https://yourdomain.com`)
-   - **Redirect URIs**: Add your redirect URI (e.g., `https://localhost:5173/spotify-popup.html` for development)
+   - **Redirect URIs**: Add your redirect URI (e.g., `http://localhost:5173/spotify-popup.html` for development)
    - **API/SDKs**: Select "Web API"
 5. Accept the terms and create the app
 
@@ -39,7 +39,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 # Spotify OAuth Configuration
 VITE_SPOTIFY_CLIENT_ID=your_spotify_client_id_here
 VITE_SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
-VITE_SPOTIFY_REDIRECT_URI=https://localhost:5173/spotify-popup.html
+VITE_SPOTIFY_REDIRECT_URI=http://localhost:5173/spotify-popup.html
 ```
 
 **Important**: Replace the placeholder values with your actual credentials.
@@ -131,7 +131,7 @@ The integration handles various error scenarios:
 
 2. **"Invalid redirect URI"**
    - Ensure the redirect URI in your Spotify app matches `VITE_SPOTIFY_REDIRECT_URI`
-   - For development, use `https://localhost:5173/spotify-popup.html`
+   - For development, use `http://localhost:5173/spotify-popup.html`
    - For production, use your actual domain
 
 3. **"Popup blocked"**

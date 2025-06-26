@@ -52,7 +52,7 @@ export interface SpotifyProfile {
 
 // Spotify OAuth configuration
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || `http://127.0.0.1:5173/spotify-popup.html`;
+const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || `http://localhost:5173/spotify-popup.html`;
 
 // Generate Spotify OAuth URL
 export const getSpotifyAuthUrl = (): string => {
