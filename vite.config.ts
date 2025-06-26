@@ -7,4 +7,15 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+<<<<<<< HEAD
+=======
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        spotifyPopup: 'spotify-popup.html',
+      },
+    },
+  },
+>>>>>>> d8664fc (Popup entry, Spotify OAuth config)
 });
