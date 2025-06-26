@@ -145,8 +145,22 @@ if (!hasValidSupabaseConfig) {
                     data: null, 
                     error: { message: 'Supabase not configured - using mock data' } 
                   });
+                },
+                order: (column: string, options?: any) => {
+                  console.log('Mock: order called with:', column, options);
+                  return Promise.resolve({ 
+                    data: [], 
+                    error: { message: 'Supabase not configured - using mock data' } 
+                  });
                 }
               };
+            },
+            order: (column: string, options?: any) => {
+              console.log('Mock: order called with:', column, options);
+              return Promise.resolve({ 
+                data: [], 
+                error: { message: 'Supabase not configured - using mock data' } 
+              });
             }
           };
         },
