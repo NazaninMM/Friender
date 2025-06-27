@@ -160,37 +160,45 @@ export const activityService = {
         return [];
       }
 
-      return data.map(activity => ({
-        id: activity.id,
-        title: activity.title,
-        description: activity.description,
-        location: activity.location,
-        date: new Date(activity.date),
-        time: activity.time,
-        maxAttendees: activity.max_attendees,
-        currentAttendees: activity.current_attendees,
-        category: activity.category,
-        createdBy: {
-          id: activity.created_by.id,
-          firstName: activity.created_by.first_name,
-          lastName: activity.created_by.last_name,
-          name: activity.created_by.name,
-          email: activity.created_by.email,
-          age: activity.created_by.age,
-          profileImage: activity.created_by.profile_image || '',
-          bio: activity.created_by.bio || '',
-          location: activity.created_by.location || '',
-          interests: activity.created_by.interests || [],
-          personalityTraits: activity.created_by.personality_traits || [],
-          joinedActivities: activity.created_by.joined_activities || [],
-          createdActivities: activity.created_by.created_activities || [],
-          connectedServices: activity.created_by.connected_services || [],
-        },
-        attendees: [], // Will be populated separately
-        pendingUsers: [],
-        image: activity.image,
-        tags: activity.tags || [],
-      }));
+      // Get attendees for each activity
+      const activitiesWithAttendees = await Promise.all(
+        data.map(async (activity) => {
+          const attendees = await this.getActivityAttendees(activity.id);
+          return {
+            id: activity.id,
+            title: activity.title,
+            description: activity.description,
+            location: activity.location,
+            date: new Date(activity.date),
+            time: activity.time,
+            maxAttendees: activity.max_attendees,
+            currentAttendees: activity.current_attendees,
+            category: activity.category,
+            createdBy: {
+              id: activity.created_by.id,
+              firstName: activity.created_by.first_name,
+              lastName: activity.created_by.last_name,
+              name: activity.created_by.name || `${activity.created_by.first_name} ${activity.created_by.last_name}`,
+              email: activity.created_by.email,
+              age: activity.created_by.age,
+              profileImage: activity.created_by.profile_image || '',
+              bio: activity.created_by.bio || '',
+              location: activity.created_by.location || '',
+              interests: activity.created_by.interests || [],
+              personalityTraits: activity.created_by.personality_traits || [],
+              joinedActivities: activity.created_by.joined_activities || [],
+              createdActivities: activity.created_by.created_activities || [],
+              connectedServices: activity.created_by.connected_services || [],
+            },
+            attendees,
+            pendingUsers: [],
+            image: activity.image || 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
+            tags: activity.tags || [],
+          };
+        })
+      );
+
+      return activitiesWithAttendees;
     } catch (error) {
       console.error('Error in getAllActivities:', error);
       return [];
@@ -265,7 +273,7 @@ export const activityService = {
           id: data.created_by.id,
           firstName: data.created_by.first_name,
           lastName: data.created_by.last_name,
-          name: data.created_by.name,
+          name: data.created_by.name || `${data.created_by.first_name} ${data.created_by.last_name}`,
           email: data.created_by.email,
           age: data.created_by.age,
           profileImage: data.created_by.profile_image || '',
@@ -279,7 +287,7 @@ export const activityService = {
         },
         attendees,
         pendingUsers: [],
-        image: data.image,
+        image: data.image || 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
         tags: data.tags || [],
       };
     } catch (error) {
@@ -292,28 +300,36 @@ export const activityService = {
   async joinActivity(activityId: string, userId: string): Promise<boolean> {
     try {
       console.log('joinActivity: called with activityId:', activityId, 'userId:', userId);
-      const { error: insertError, data: insertData } = await supabase
+      
+      // First check if the user is already an attendee
+      const { data: existingAttendee, error: checkError } = await supabase
+        .from('activity_attendees')
+        .select('id')
+        .eq('activity_id', activityId)
+        .eq('user_id', userId)
+        .single();
+        
+      if (!checkError && existingAttendee) {
+        console.log('User is already an attendee of this activity');
+        return true;
+      }
+      
+      // Insert new attendee record
+      const { error: insertError } = await supabase
         .from('activity_attendees')
         .insert({
           activity_id: activityId,
           user_id: userId,
           status: 'joined',
-          joined_at: new Date().toISOString(),
+          joined_at: new Date().toISOString()
         });
-      console.log('joinActivity: activity_attendees insert result:', insertData, 'error:', insertError);
-
+        
       if (insertError) {
         console.error('Error joining activity:', insertError);
         return false;
       }
 
-      // Update activity attendee count
-      const attendeeCountUpdate = await supabase
-        .from('activities')
-        .update({ current_attendees: supabase.rpc('increment') })
-        .eq('id', activityId);
-      console.log('joinActivity: attendee count update:', attendeeCountUpdate);
-
+      console.log('Successfully joined activity');
       return true;
     } catch (error) {
       console.error('Error in joinActivity:', error);
@@ -330,7 +346,8 @@ export const activityService = {
           user_id,
           profiles!activity_attendees_user_id_fkey(*)
         `)
-        .eq('activity_id', activityId);
+        .eq('activity_id', activityId)
+        .eq('status', 'joined');
 
       if (error) {
         console.error('Error fetching activity attendees:', error);
@@ -341,7 +358,7 @@ export const activityService = {
         id: attendee.profiles.id,
         firstName: attendee.profiles.first_name,
         lastName: attendee.profiles.last_name,
-        name: attendee.profiles.name,
+        name: attendee.profiles.name || `${attendee.profiles.first_name} ${attendee.profiles.last_name}`,
         email: attendee.profiles.email,
         age: attendee.profiles.age,
         profileImage: attendee.profiles.profile_image || '',
@@ -359,196 +376,3 @@ export const activityService = {
     }
   }
 };
-
-// Join Request Operations
-export const joinRequestService = {
-  // Create join request
-  async createJoinRequest(activityId: string, userId: string, message: string): Promise<JoinRequest | null> {
-    try {
-      const user = await userService.getUserProfile(userId);
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from('join_requests')
-        .insert({
-          activity_id: activityId,
-          requester_id: userId,
-          message,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating join request:', error);
-        return null;
-      }
-
-      return {
-        id: data.id,
-        activityId: data.activity_id,
-        requesterId: data.requester_id,
-        requesterName: user.name,
-        requesterImage: user.profileImage,
-        message: data.message,
-        timestamp: new Date(data.created_at),
-        status: data.status,
-      };
-    } catch (error) {
-      console.error('Error in createJoinRequest:', error);
-      return null;
-    }
-  },
-
-  // Get join requests for an activity
-  async getActivityJoinRequests(activityId: string): Promise<JoinRequest[]> {
-    try {
-      const { data, error } = await supabase
-        .from('join_requests')
-        .select(`
-          *,
-          requester:profiles!join_requests_requester_id_fkey(*)
-        `)
-        .eq('activity_id', activityId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching join requests:', error);
-        return [];
-      }
-
-      return data.map(request => ({
-        id: request.id,
-        activityId: request.activity_id,
-        requesterId: request.requester_id,
-        requesterName: request.requester.name,
-        requesterImage: request.requester.profile_image || '',
-        message: request.message,
-        timestamp: new Date(request.created_at),
-        status: request.status,
-      }));
-    } catch (error) {
-      console.error('Error in getActivityJoinRequests:', error);
-      return [];
-    }
-  },
-
-  // Approve join request
-  async approveJoinRequest(requestId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .from('join_requests')
-        .update({ status: 'approved' })
-        .eq('id', requestId)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error approving join request:', error);
-        return false;
-      }
-
-      // Add user to activity attendees
-      await activityService.joinActivity(data.activity_id, data.requester_id);
-
-      return true;
-    } catch (error) {
-      console.error('Error in approveJoinRequest:', error);
-      return false;
-    }
-  },
-
-  // Deny join request
-  async denyJoinRequest(requestId: string): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('join_requests')
-        .update({ status: 'denied' })
-        .eq('id', requestId);
-
-      if (error) {
-        console.error('Error denying join request:', error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error in denyJoinRequest:', error);
-      return false;
-    }
-  }
-};
-
-// Chat Operations
-export const chatService = {
-  // Get activity chat messages
-  async getActivityChatMessages(activityId: string): Promise<ChatMessage[]> {
-    try {
-      const { data, error } = await supabase
-        .from('activity_chat_messages')
-        .select(`
-          *,
-          user:profiles!activity_chat_messages_user_id_fkey(*)
-        `)
-        .eq('activity_id', activityId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching chat messages:', error);
-        return [];
-      }
-
-      return data.map(message => ({
-        id: message.id,
-        userId: message.user_id,
-        userName: message.user.name,
-        userImage: message.user.profile_image || '',
-        message: message.message,
-        timestamp: new Date(message.created_at),
-        type: message.type,
-        metadata: message.metadata,
-      }));
-    } catch (error) {
-      console.error('Error in getActivityChatMessages:', error);
-      return [];
-    }
-  },
-
-  // Send activity chat message
-  async sendActivityChatMessage(activityId: string, userId: string, message: string, type: 'text' | 'system' = 'text'): Promise<ChatMessage | null> {
-    try {
-      const user = await userService.getUserProfile(userId);
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from('activity_chat_messages')
-        .insert({
-          activity_id: activityId,
-          user_id: userId,
-          message,
-          type,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error sending chat message:', error);
-        return null;
-      }
-
-      return {
-        id: data.id,
-        userId: data.user_id,
-        userName: user.name,
-        userImage: user.profileImage,
-        message: data.message,
-        timestamp: new Date(data.created_at),
-        type: data.type,
-        metadata: data.metadata,
-      };
-    } catch (error) {
-      console.error('Error in sendActivityChatMessage:', error);
-      return null;
-    }
-  }
-}; 

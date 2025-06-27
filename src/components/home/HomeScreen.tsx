@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Activity, User, ActivityCategory } from '../../types';
 import { categoryIcons, categoryColors } from '../../constants/categories';
+import { joinRequestService } from '../../lib/joinRequestService';
 
 interface HomeScreenProps {
   activities: Activity[];
@@ -25,6 +26,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ActivityCategory | 'all'>('all');
   const [showAll, setShowAll] = useState(false);
+  const [joiningActivity, setJoiningActivity] = useState<string | null>(null);
 
   const categories: (ActivityCategory | 'all')[] = [
     'all', 'food', 'sports', 'culture', 'outdoor', 'social', 'learning', 'entertainment', 'wellness'
@@ -105,6 +107,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
+  const handleJoinActivity = async (activityId: string) => {
+    if (joiningActivity || !user) return;
+
+    setJoiningActivity(activityId);
+    try {
+      // Check if user already has a pending join request
+      const hasPending = await joinRequestService.hasPendingJoinRequest(activityId, user.id);
+      if (hasPending) {
+        alert('You already have a pending join request for this activity.');
+        return;
+      }
+
+      // Create join request with chat
+      const result = await joinRequestService.createJoinRequest(
+        activityId,
+        user.id,
+        'Hey! I\'d love to join your activity.'
+      );
+
+      if (result) {
+        // Call the parent handler to update UI state
+        onJoinActivity(activityId);
+        
+        // Show success message
+        alert('Join request sent! You can now chat with the host.');
+      } else {
+        alert('Failed to send join request. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error joining activity:', error);
+      alert('Failed to send join request. Please try again.');
+    } finally {
+      setJoiningActivity(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
       <div className="max-w-md mx-auto">
@@ -168,7 +206,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                   }`}
                 >
-                  {category === 'all' ? '�� All' : `${category.charAt(0).toUpperCase() + category.slice(1)}`}
+                  {category === 'all' ? '🌟 All' : `${category.charAt(0).toUpperCase() + category.slice(1)}`}
                 </button>
               ))}
             </div>
@@ -285,15 +323,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!isUserJoined(activity)) {
-                          onJoinActivity(activity.id);
+                          handleJoinActivity(activity.id);
                         }
                       }}
                       size="sm"
                       variant={isUserJoined(activity) ? "outline" : "primary"}
-                      disabled={activity.currentAttendees >= activity.maxAttendees}
+                      disabled={activity.currentAttendees >= activity.maxAttendees || joiningActivity === activity.id}
                       className={isUserJoined(activity) ? "border-green-500 text-green-600" : ""}
                     >
-                      {isUserJoined(activity) ? 'Joined' : 
+                      {joiningActivity === activity.id ? 'Joining...' :
+                       isUserJoined(activity) ? 'Joined' : 
                        activity.currentAttendees >= activity.maxAttendees ? 'Full' : 'Join'}
                     </Button>
                   </div>
@@ -328,6 +367,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {showAll ? 'No activities found' : 'No matched activities'}
             </h3>
+            
             <p className="text-gray-600">
               {showAll 
                 ? (searchQuery ? `No activities match "${searchQuery}"` : 'No activities in this category yet')

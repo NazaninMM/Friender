@@ -14,15 +14,14 @@ import { ProfileScreen } from './components/profile/ProfileScreen';
 import { SettingsScreen } from './components/settings/SettingsScreen';
 import { ActivityChatScreen } from './components/activity/ActivityChatScreen';
 import { ActivityDetailScreen } from './components/activity/ActivityDetailScreen';
-import { HostRequestChatScreen } from './components/activity/HostRequestChatScreen';
-import { DirectChatScreen } from './components/chat/DirectChatScreen';
 import { CreateActivityModal } from './components/activity/CreateActivityModal';
 import { BottomNavigation } from './components/layout/BottomNavigation';
-import { Activity, CreateActivityData, User, JoinRequest, DirectMessageChat, ChatMessage } from './types';
+import { Activity, CreateActivityData, User } from './types';
 import { activityService } from './lib/database';
+import { joinRequestService } from './lib/joinRequestService';
 
 type AppFlowState = 'landing' | 'auth' | 'socialIntegration' | 'locationPermission' | 'loadingPersonality' | 'mainApp';
-type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail' | 'chat';
+type AppScreen = 'main' | 'chat' | 'settings' | 'activity-detail';
 type MainTab = 'home' | 'chats' | 'activities' | 'profile';
 
 function App() {
@@ -38,16 +37,9 @@ function App() {
   const [currentTab, setCurrentTab] = useState<MainTab>('home');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [selectedJoinRequest, setSelectedJoinRequest] = useState<JoinRequest | null>(null);
-  const [selectedDirectChat, setSelectedDirectChat] = useState<DirectMessageChat | null>(null);
   const [selectedOtherUser, setSelectedOtherUser] = useState<User | null>(null);
   const [showChat, setShowChat] = useState(false);
-  const [showHostRequest, setShowHostRequest] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
-  const [directChats, setDirectChats] = useState<DirectMessageChat[]>([]);
-
-  // Add state to track onboarding mode
   const [onboardingMode, setOnboardingMode] = useState<'signup' | 'signin' | null>(null);
 
   console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState);
@@ -190,108 +182,42 @@ function App() {
   const handleJoinActivity = async (activityId: string) => {
     if (!user) return;
   
-    const activity = activities.find(a => a.id === activityId);
-    if (!activity) return;
-  
-    // Create a join request (local state/UI only)
-    const joinRequest: JoinRequest = {
-      id: Date.now().toString(),
-      activityId: activityId,
-      requesterId: user.id,
-      requesterName: user.name,
-      requesterImage: user.profileImage,
-      message: `Hi! I'd love to join "${activity.title}". This looks like a great activity and I think I'd be a good fit for the group. Looking forward to hearing from you!`,
-      timestamp: new Date(),
-      status: 'pending',
-    };
-  
-    setJoinRequests(prev => [...prev, joinRequest]);
-  
-    // Add user to pending list (local UI)
-    setActivities(prev => prev.map(a => {
-      if (a.id === activityId) {
-        return {
-          ...a,
-          pendingUsers: [...(a.pendingUsers || []), user],
-          isPending: true,
-        };
+    try {
+      // Create a join request (this will also create a chat)
+      const result = await joinRequestService.createJoinRequest(
+        activityId, 
+        user.id,
+        `Hi! I'd love to join this activity. Looking forward to hearing from you!`
+      );
+      
+      if (!result) {
+        console.error('Failed to create join request');
+        return;
       }
-      return a;
-    }));
-  
-    // Call backend to join activity
-    console.log('App: handleJoinActivity called with', activityId, user.id);
-    const result = await activityService.joinActivity(activityId, user.id);
-    console.log('App: activityService.joinActivity result:', result);
-  
-    // Open chat with the activity host
-    handleOpenChat(activity.createdBy);
-  };
-
-  const handleApproveRequest = (requestId: string) => {
-    const request = joinRequests.find(r => r.id === requestId);
-    if (!request || !user) return;
-
-    // Update request status
-    setJoinRequests(prev => 
-      prev.map(r => 
-        r.id === requestId 
-          ? { ...r, status: 'approved' }
-          : r
-      )
-    );
-
-    // Move user from pending to approved attendees
-    setActivities(prev => prev.map(activity => {
-      if (activity.id === request.activityId) {
-        const requester = activity.pendingUsers?.find(u => u.id === request.requesterId);
-        if (requester) {
+      
+      console.log('Join request created successfully:', result);
+      
+      // Update UI to show pending state
+      setActivities(prev => prev.map(a => {
+        if (a.id === activityId) {
           return {
-            ...activity,
-            attendees: [...activity.attendees, requester],
-            currentAttendees: activity.currentAttendees + 1,
-            pendingUsers: (activity.pendingUsers || []).filter(u => u.id !== request.requesterId),
-            isApproved: true,
-            isPending: false,
+            ...a,
+            pendingUsers: [...(a.pendingUsers || []), user],
+            isPending: true,
           };
         }
-      }
-      return activity;
-    }));
-
-    // Close host request chat
-    setShowHostRequest(false);
-    setSelectedJoinRequest(null);
-  };
-
-  const handleDenyRequest = (requestId: string) => {
-    const request = joinRequests.find(r => r.id === requestId);
-    if (!request) return;
-
-    // Update request status
-    setJoinRequests(prev => 
-      prev.map(r => 
-        r.id === requestId 
-          ? { ...r, status: 'denied' }
-          : r
-      )
-    );
-
-    // Remove user from pending list
-    setActivities(prev => prev.map(activity => {
-      if (activity.id === request.activityId) {
-        return {
-          ...activity,
-          pendingUsers: (activity.pendingUsers || []).filter(u => u.id !== request.requesterId),
-          isPending: false,
-        };
-      }
-      return activity;
-    }));
-
-    // Close host request chat
-    setShowHostRequest(false);
-    setSelectedJoinRequest(null);
+        return a;
+      }));
+      
+      // Refresh activities to get updated state
+      const updatedActivities = await activityService.getAllActivities();
+      setActivities(updatedActivities);
+      
+      // Switch to chats tab to show the new conversation
+      setCurrentTab('chats');
+    } catch (err) {
+      console.error('Error joining activity:', err);
+    }
   };
 
   const handleCreateActivity = async (activityData: CreateActivityData) => {
@@ -313,36 +239,9 @@ function App() {
     setShowChat(true);
   };
 
-  const handleOpenHostRequest = (activity: Activity, request: JoinRequest) => {
-    setSelectedActivity(activity);
-    setSelectedJoinRequest(request);
-    setShowHostRequest(true);
-  };
-
-  const handleOpenDirectChat = (directChat: DirectMessageChat) => {
-    setSelectedDirectChat(directChat);
-    setCurrentScreen('direct-chat');
-  };
-
-  const handleSendDirectMessage = (chatId: string, messageText: string) => {
-    // This will be handled by the new chat system
-    console.log('Sending direct message:', messageText);
-  };
-
   const handleCloseChat = () => {
     setShowChat(false);
     setSelectedActivity(null);
-  };
-
-  const handleCloseHostRequest = () => {
-    setShowHostRequest(false);
-    setSelectedActivity(null);
-    setSelectedJoinRequest(null);
-  };
-
-  const handleBackFromDirectChat = () => {
-    setCurrentScreen('main');
-    setSelectedDirectChat(null);
   };
 
   const handleBackFromActivityDetail = () => {
@@ -363,6 +262,20 @@ function App() {
       return activity;
     }));
   };
+
+  // Show loading screen during initial auth check
+  if (loading) {
+    console.log('App: Showing initial loading screen');
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+        />
+      </div>
+    );
+  }
 
   // Render based on app flow state
   if (appFlowState === 'landing') {
@@ -449,32 +362,6 @@ function App() {
         onLeave={() => handleLeaveActivity(selectedActivity.id)}
         onOpenChat={() => handleOpenActivityChat(selectedActivity)}
         onBack={handleBackFromActivityDetail}
-      />
-    );
-  }
-
-  if (currentScreen === 'direct-chat' && selectedDirectChat) {
-    return (
-      <DirectChatScreen 
-        directChat={selectedDirectChat}
-        user={user!}
-        onBack={handleBackFromDirectChat}
-        onSendMessage={handleSendDirectMessage}
-        onApproveRequest={handleApproveRequest}
-        onDenyRequest={handleDenyRequest}
-      />
-    );
-  }
-
-  if (showHostRequest && selectedActivity && selectedJoinRequest) {
-    return (
-      <HostRequestChatScreen 
-        activity={selectedActivity}
-        user={user!}
-        joinRequest={selectedJoinRequest}
-        onBack={handleCloseHostRequest}
-        onApprove={handleApproveRequest}
-        onDeny={handleDenyRequest}
       />
     );
   }
