@@ -61,19 +61,17 @@ function App() {
     if (!loading) {
       console.log('✅ App: Not loading, processing state...');
       if (user) {
-        // Check if user has completed onboarding by looking at connected services
-        const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length > 0;
-        
+        // Require at least 2 connected services to complete onboarding
+        const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length >= 2;
         console.log('👤 App: User found');
         console.log('🔗 App: connectedServices:', user.connectedServices);
         console.log('✅ App: hasCompletedOnboarding:', hasCompletedOnboarding);
-        
         if (hasCompletedOnboarding) {
           // User has completed onboarding, go to main app
           console.log('🏠 App: Setting appFlowState to mainApp');
           setAppFlowState('mainApp');
         } else {
-          // New user or user hasn't completed onboarding, go to social integration
+          // User hasn't connected enough services, go to social integration
           console.log('🔗 App: Setting appFlowState to socialIntegration');
           setAppFlowState('socialIntegration');
         }
@@ -110,11 +108,10 @@ function App() {
     // This function is called when auth is successful
     // The useEffect above will handle the transition based on user.connectedServices
     console.log('App: handleAuthSuccess called - user will be redirected based on onboarding status');
-    
     // Fallback: If we have a user but are still in auth state, force transition
     if (user && appFlowState === 'auth') {
       console.log('App: Fallback - forcing transition from auth state');
-      const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length > 0;
+      const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length >= 2;
       if (hasCompletedOnboarding) {
         setAppFlowState('mainApp');
       } else {

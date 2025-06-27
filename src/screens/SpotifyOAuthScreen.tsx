@@ -19,7 +19,7 @@ interface SyncStep {
   error?: string;
 }
 
-const SpotifySyncScreen: React.FC = () => {
+const SpotifyOAuthScreen: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [syncSteps, setSyncSteps] = useState<SyncStep[]>([
     {
@@ -65,35 +65,54 @@ const SpotifySyncScreen: React.FC = () => {
   useEffect(() => {
     const initializeSync = async () => {
       try {
+        console.log('🎵 Starting Spotify sync process...');
+        
         // Check if user is authenticated
+        console.log('🔍 Checking user authentication...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session?.user) {
-          throw new Error('User not authenticated');
+        
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          throw new Error(`Authentication error: ${sessionError.message}`);
         }
+        
+        if (!session?.user) {
+          console.error('❌ No user session found');
+          throw new Error('User not authenticated. Please log in first.');
+        }
+        
+        console.log('✅ User authenticated:', session.user.id);
         setCurrentUser(session.user);
 
         // Get OAuth callback parameters from URL
+        console.log('🔍 Getting OAuth callback parameters...');
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const state = urlParams.get('state');
         const error = urlParams.get('error');
 
+        console.log('📋 URL Parameters:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error });
+
         if (error) {
+          console.error('❌ Spotify authorization error:', error);
           throw new Error(`Spotify authorization failed: ${error}`);
         }
 
         if (!code || !state) {
-          throw new Error('Missing authorization code or state');
+          console.error('❌ Missing authorization parameters');
+          throw new Error('Missing authorization code or state. Please try connecting again.');
         }
 
+        console.log('✅ OAuth parameters received, starting sync...');
         // Start the sync process
         await performSpotifySync(code, state);
 
       } catch (err) {
-        console.error('Spotify sync initialization failed:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+        console.error('❌ Spotify sync initialization failed:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+        setError(errorMessage);
         setOverallStatus('error');
-        updateStepStatus('auth', 'error', err instanceof Error ? err.message : 'Unknown error');
+        updateStepStatus('auth', 'error', errorMessage);
       }
     };
 
@@ -101,6 +120,7 @@ const SpotifySyncScreen: React.FC = () => {
   }, []);
 
   const updateStepStatus = (stepId: string, status: SyncStep['status'], error?: string) => {
+    console.log(`🔄 Updating step ${stepId} to ${status}${error ? ` with error: ${error}` : ''}`);
     setSyncSteps((prev: SyncStep[]) => prev.map((step: SyncStep) => 
       step.id === stepId 
         ? { ...step, status, error }
@@ -110,47 +130,60 @@ const SpotifySyncScreen: React.FC = () => {
 
   const performSpotifySync = async (code: string, state: string) => {
     try {
+      console.log('🎵 Starting Spotify sync steps...');
+
       // Step 1: Exchange code for token
+      console.log('🔑 Step 1: Exchanging code for token...');
       updateStepStatus('auth', 'loading');
       const accessToken = await exchangeCodeForToken(code, state);
       if (!accessToken) {
-        throw new Error('Failed to obtain access token');
+        throw new Error('Failed to obtain access token from Spotify');
       }
+      console.log('✅ Access token obtained successfully');
       updateStepStatus('auth', 'success');
 
       // Step 2: Get Spotify profile
+      console.log('👤 Step 2: Fetching Spotify profile...');
       updateStepStatus('profile', 'loading');
       const profile = await getSpotifyProfile(accessToken);
       if (!profile) {
         throw new Error('Failed to fetch Spotify profile');
       }
+      console.log('✅ Spotify profile fetched:', profile.display_name);
       updateStepStatus('profile', 'success');
 
       // Step 3: Fetch top tracks
+      console.log('🎵 Step 3: Fetching top tracks...');
       updateStepStatus('tracks', 'loading');
       const tracks = await fetchSpotifyTopTracks(accessToken, 'medium_term');
+      console.log(`📊 Fetched ${tracks.length} tracks`);
       if (tracks.length === 0) {
-        throw new Error('No tracks found in your Spotify account');
+        throw new Error('No tracks found in your Spotify account. Please listen to some music and try again.');
       }
       updateStepStatus('tracks', 'success');
 
       // Step 4: Fetch top artists
+      console.log('🎤 Step 4: Fetching top artists...');
       updateStepStatus('artists', 'loading');
       const artists = await fetchSpotifyTopArtists(accessToken, 'medium_term');
+      console.log(`📊 Fetched ${artists.length} artists`);
       if (artists.length === 0) {
-        throw new Error('No artists found in your Spotify account');
+        throw new Error('No artists found in your Spotify account. Please listen to some music and try again.');
       }
       updateStepStatus('artists', 'success');
 
       // Step 5: Analyze music taste
+      console.log('🧠 Step 5: Analyzing music taste...');
       updateStepStatus('analysis', 'loading');
       const analysis = analyzeMusicTaste(tracks, artists);
       if (!analysis) {
         throw new Error('Failed to analyze music taste');
       }
+      console.log('✅ Music analysis completed:', analysis.musicPersonality);
       updateStepStatus('analysis', 'success');
 
       // Step 6: Save to Supabase
+      console.log('💾 Step 6: Saving data to database...');
       updateStepStatus('save', 'loading');
       const saveSuccess = await saveSpotifyDataToSupabase(
         currentUser.id,
@@ -160,15 +193,18 @@ const SpotifySyncScreen: React.FC = () => {
       );
       
       if (!saveSuccess) {
-        throw new Error('Failed to save data to profile');
+        throw new Error('Failed to save data to your profile. Please try again.');
       }
+      console.log('✅ Data saved successfully');
       updateStepStatus('save', 'success');
 
       // All steps completed successfully
+      console.log('🎉 All steps completed successfully!');
       setOverallStatus('success');
       
       // Notify parent window of success
       if (window.opener) {
+        console.log('📤 Notifying parent window of success...');
         window.opener.postMessage({
           type: 'SPOTIFY_OAUTH_SUCCESS',
           data: {
@@ -180,37 +216,42 @@ const SpotifySyncScreen: React.FC = () => {
       }
       
       // Close popup after a short delay
+      console.log('⏰ Closing popup in 2 seconds...');
       setTimeout(() => {
         window.close();
       }, 2000);
 
     } catch (err) {
-      console.error('Spotify sync failed:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      console.error('❌ Spotify sync failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(errorMessage);
       setOverallStatus('error');
       
       // Find the current step and mark it as error
       const currentStep = syncSteps.find((step: SyncStep) => step.status === 'loading');
       if (currentStep) {
-        updateStepStatus(currentStep.id, 'error', err instanceof Error ? err.message : 'Unknown error');
+        updateStepStatus(currentStep.id, 'error', errorMessage);
       }
 
       // Notify parent window of error
       if (window.opener) {
+        console.log('📤 Notifying parent window of error...');
         window.opener.postMessage({
           type: 'SPOTIFY_OAUTH_ERROR',
-          error: err instanceof Error ? err.message : 'Unknown error'
+          error: errorMessage
         }, window.location.origin);
       }
     }
   };
 
   const handleRetry = () => {
+    console.log('🔄 Retrying Spotify sync...');
     // Reload the page to retry
     window.location.reload();
   };
 
   const handleClose = () => {
+    console.log('❌ User cancelled Spotify sync');
     // Notify parent window of cancellation
     if (window.opener) {
       window.opener.postMessage({
@@ -339,4 +380,4 @@ const SpotifySyncScreen: React.FC = () => {
   );
 };
 
-export default SpotifySyncScreen;
+export default SpotifyOAuthScreen; 

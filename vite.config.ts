@@ -7,6 +7,8 @@ export default defineConfig({
     react({
       // Force JSX runtime to be used
       jsxRuntime: 'automatic',
+      // Ensure proper preamble detection
+      include: ['**/*.{jsx,tsx}', '**/*.{js,ts}'],
     })
   ],
   optimizeDeps: {
@@ -17,7 +19,18 @@ export default defineConfig({
       input: {
         main: 'index.html',
         spotifyPopup: 'spotify-popup.html',
+        googlePlayPopup: 'public/google-play-popup.html',
       },
     },
   },
+  // Ensure proper handling of popup entry point
+  define: {
+    'process.env.NODE_ENV': '"development"'
+  },
+  // Handle environment variable replacement in HTML files
+  server: {
+    fs: {
+      allow: ['..']
+    }
+  }
 });

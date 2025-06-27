@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Play Games OAuth</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+    }
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid white;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h2>Connecting to Google Play Games...</h2>
+    <p>Please wait while we authenticate your account.</p>
+  </div>
+
+  <script>
+    // Get client ID from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const clientId = urlParams.get('client_id');
+    
+    // Handle OAuth flow
+    async function startOAuth() {
+      if (!clientId) {
+        console.error('Google Play Client ID not found in URL parameters');
+        window.opener.postMessage({ 
+          type: 'GOOGLE_PLAY_OAUTH_ERROR', 
+          error: 'Client ID not provided' 
+        }, window.location.origin);
+        window.close();
+        return;
+      }
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: window.location.origin + '/google-play-popup.html',
+        response_type: 'token',
+        scope: 'https://www.googleapis.com/auth/games https://www.googleapis.com/auth/userinfo.profile',
+        include_granted_scopes: 'true',
+        state: Math.random().toString(36).substring(2)
+      });
+      
+      window.location = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+    }
+
+    // Handle redirect with access_token
+    window.onload = function() {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const error = params.get('error');
+      
+      if (error) {
+        window.opener.postMessage({ 
+          type: 'GOOGLE_PLAY_OAUTH_ERROR', 
+          error: error 
+        }, window.location.origin);
+        window.close();
+      } else if (accessToken) {
+        window.opener.postMessage({ 
+          type: 'GOOGLE_PLAY_OAUTH_SUCCESS', 
+          accessToken: accessToken 
+        }, window.location.origin);
+        window.close();
+      } else {
+        startOAuth();
+      }
+    };
+  </script>
+</body>
+</html> 

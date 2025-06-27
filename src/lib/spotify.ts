@@ -50,6 +50,29 @@ export interface SpotifyProfile {
   product: string;
 }
 
+export interface MusicAnalysis {
+  genres: Map<string, number>;
+  moods: {
+    energetic: number;
+    calm: number;
+    happy: number;
+    melancholic: number;
+    danceable: number;
+    acoustic: number;
+  };
+  audioFeatures: {
+    avgDanceability: number;
+    avgEnergy: number;
+    avgValence: number;
+    avgAcousticness: number;
+    avgTempo: number;
+  };
+  topArtists: string[];
+  topTracks: string[];
+  musicPersonality: string[];
+  topGenres: string[];
+}
+
 // Spotify OAuth configuration
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
 const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || `http://localhost:5173/spotify-popup.html`;
@@ -211,21 +234,27 @@ export const fetchTrackAudioFeatures = async (accessToken: string, trackId: stri
     });
 
     if (!response.ok) {
+      // Log the error but don't throw - audio features are optional
+      if (response.status === 403) {
+        console.log(`Audio features not available for track ${trackId} (403 Forbidden)`);
+      } else {
+        console.log(`Audio features request failed for track ${trackId}: ${response.status}`);
+      }
       return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching audio features:', error);
+    console.log('Error fetching audio features:', error);
     return null;
   }
 };
 
 // Analyze music taste from tracks and artists
-export const analyzeMusicTaste = (tracks: SpotifyTrack[], artists: SpotifyArtist[]) => {
+export const analyzeMusicTaste = (tracks: SpotifyTrack[], artists: SpotifyArtist[]): MusicAnalysis | null => {
   if (!tracks.length && !artists.length) return null;
 
-  const analysis = {
+  const analysis: MusicAnalysis = {
     genres: new Map<string, number>(),
     moods: {
       energetic: 0,
@@ -244,7 +273,8 @@ export const analyzeMusicTaste = (tracks: SpotifyTrack[], artists: SpotifyArtist
     },
     topArtists: artists.slice(0, 10).map(artist => artist.name),
     topTracks: tracks.slice(0, 10).map(track => track.name),
-    musicPersonality: [] as string[]
+    musicPersonality: [],
+    topGenres: []
   };
 
   // Analyze genres from artists
@@ -291,14 +321,19 @@ export const analyzeMusicTaste = (tracks: SpotifyTrack[], artists: SpotifyArtist
     .slice(0, 5)
     .map(([genre]) => genre);
 
-  if (analysis.moods.energetic > 0) analysis.musicPersonality.push('high-energy');
-  if (analysis.moods.calm > 0) analysis.musicPersonality.push('chill');
-  if (analysis.moods.happy > 0) analysis.musicPersonality.push('upbeat');
-  if (analysis.moods.melancholic > 0) analysis.musicPersonality.push('introspective');
-  if (analysis.moods.danceable > 0) analysis.musicPersonality.push('dance-lover');
-  if (analysis.moods.acoustic > 0) analysis.musicPersonality.push('acoustic-appreciator');
+  analysis.topGenres = topGenres;
 
-  // Add genre-based personality traits
+  // Add mood-based personality traits (only if we have audio features)
+  if (tracksWithFeatures.length > 0) {
+    if (analysis.moods.energetic > 0) analysis.musicPersonality.push('high-energy');
+    if (analysis.moods.calm > 0) analysis.musicPersonality.push('chill');
+    if (analysis.moods.happy > 0) analysis.musicPersonality.push('upbeat');
+    if (analysis.moods.melancholic > 0) analysis.musicPersonality.push('introspective');
+    if (analysis.moods.danceable > 0) analysis.musicPersonality.push('dance-lover');
+    if (analysis.moods.acoustic > 0) analysis.musicPersonality.push('acoustic-appreciator');
+  }
+
+  // Add genre-based personality traits (always available)
   topGenres.forEach(genre => {
     if (genre.includes('rock')) analysis.musicPersonality.push('rock-enthusiast');
     if (genre.includes('pop')) analysis.musicPersonality.push('pop-lover');
@@ -306,11 +341,31 @@ export const analyzeMusicTaste = (tracks: SpotifyTrack[], artists: SpotifyArtist
     if (genre.includes('electronic')) analysis.musicPersonality.push('electronic-music-fan');
     if (genre.includes('jazz')) analysis.musicPersonality.push('jazz-appreciator');
     if (genre.includes('classical')) analysis.musicPersonality.push('classical-music-fan');
+    if (genre.includes('country')) analysis.musicPersonality.push('country-music-fan');
+    if (genre.includes('folk')) analysis.musicPersonality.push('folk-music-lover');
+    if (genre.includes('blues')) analysis.musicPersonality.push('blues-appreciator');
+    if (genre.includes('reggae')) analysis.musicPersonality.push('reggae-fan');
+    if (genre.includes('r&b')) analysis.musicPersonality.push('r&b-lover');
+    if (genre.includes('soul')) analysis.musicPersonality.push('soul-music-fan');
+    if (genre.includes('indie')) analysis.musicPersonality.push('indie-music-lover');
+    if (genre.includes('alternative')) analysis.musicPersonality.push('alternative-music-fan');
+    if (genre.includes('metal')) analysis.musicPersonality.push('metal-head');
+    if (genre.includes('punk')) analysis.musicPersonality.push('punk-rocker');
   });
+
+  // Add diversity-based personality traits
+  if (topGenres.length >= 5) {
+    analysis.musicPersonality.push('eclectic-listener');
+  }
+  if (artists.length >= 20) {
+    analysis.musicPersonality.push('music-explorer');
+  }
+  if (tracks.length >= 30) {
+    analysis.musicPersonality.push('music-enthusiast');
+  }
 
   return {
     ...analysis,
-    topGenres: topGenres,
     musicPersonality: [...new Set(analysis.musicPersonality)] // Remove duplicates
   };
 };
@@ -320,13 +375,17 @@ export const saveSpotifyDataToSupabase = async (
   userId: string,
   tracks: SpotifyTrack[],
   artists: SpotifyArtist[],
-  analysis: any
+  analysis: MusicAnalysis
 ) => {
   try {
     const { supabase } = await import('./supabase');
     
+    console.log('💾 Starting to save Spotify data for user:', userId);
+    console.log('📊 Data to save:', { tracksCount: tracks.length, artistsCount: artists.length });
+    
     // Update user's connected services
-    await supabase
+    console.log('🔗 Updating user connected services...');
+    const { error: userUpdateError } = await supabase
       .from('users')
       .update({
         connected_services: supabase.sql`array_append(connected_services, 'spotify')`,
@@ -335,7 +394,14 @@ export const saveSpotifyDataToSupabase = async (
       })
       .eq('id', userId);
 
+    if (userUpdateError) {
+      console.error('❌ Error updating user:', userUpdateError);
+      throw new Error(`Failed to update user: ${userUpdateError.message}`);
+    }
+    console.log('✅ User updated successfully');
+
     // Save tracks data
+    console.log('🎵 Saving tracks data...');
     const tracksData = tracks.map(track => ({
       user_id: userId,
       spotify_id: track.id,
@@ -348,12 +414,19 @@ export const saveSpotifyDataToSupabase = async (
     }));
 
     if (tracksData.length > 0) {
-      await supabase
+      const { error: tracksError } = await supabase
         .from('user_spotify_tracks')
         .upsert(tracksData, { onConflict: 'user_id,spotify_id' });
+      
+      if (tracksError) {
+        console.error('❌ Error saving tracks:', tracksError);
+        throw new Error(`Failed to save tracks: ${tracksError.message}`);
+      }
+      console.log('✅ Tracks saved successfully');
     }
 
     // Save artists data
+    console.log('🎤 Saving artists data...');
     const artistsData = artists.map(artist => ({
       user_id: userId,
       spotify_id: artist.id,
@@ -364,13 +437,20 @@ export const saveSpotifyDataToSupabase = async (
     }));
 
     if (artistsData.length > 0) {
-      await supabase
+      const { error: artistsError } = await supabase
         .from('user_spotify_artists')
         .upsert(artistsData, { onConflict: 'user_id,spotify_id' });
+      
+      if (artistsError) {
+        console.error('❌ Error saving artists:', artistsError);
+        throw new Error(`Failed to save artists: ${artistsError.message}`);
+      }
+      console.log('✅ Artists saved successfully');
     }
 
     // Save music analysis
-    await supabase
+    console.log('🧠 Saving music analysis...');
+    const { error: analysisError } = await supabase
       .from('user_music_analysis')
       .upsert({
         user_id: userId,
@@ -382,9 +462,16 @@ export const saveSpotifyDataToSupabase = async (
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 
+    if (analysisError) {
+      console.error('❌ Error saving analysis:', analysisError);
+      throw new Error(`Failed to save analysis: ${analysisError.message}`);
+    }
+    console.log('✅ Music analysis saved successfully');
+
+    console.log('🎉 All Spotify data saved successfully!');
     return true;
   } catch (error) {
-    console.error('Error saving Spotify data to Supabase:', error);
+    console.error('❌ Error saving Spotify data to Supabase:', error);
     return false;
   }
 };
