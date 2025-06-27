@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { User } from '../../types';
 import { userService } from '../../lib/database';
 import { DefaultProfileImage } from '../ui/DefaultProfileImage';
 import { useAuth } from '../../hooks/useAuth';
@@ -367,7 +366,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Card className="p-1 border-0 shadow-lg">
             <div className="grid grid-cols-3 gap-1">
               {[
-                { id: 'about', label: 'About', icon: User },
+                { id: 'about', label: 'About', icon: Users },
                 { id: 'activities', label: 'Activities', icon: Calendar },
                 { id: 'connections', label: 'Friends', icon: Users }
               ].map((tab) => (
