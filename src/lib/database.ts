@@ -200,6 +200,7 @@ export const activityService = {
   // Create new activity
   async createActivity(activityData: CreateActivityData, userId: string): Promise<Activity | null> {
     try {
+      console.log('Inserting activity:', { ...activityData, created_by: userId });
       const { data, error } = await supabase
         .from('activities')
         .insert({
@@ -216,15 +217,13 @@ export const activityService = {
         })
         .select()
         .single();
-
+      console.log('Supabase insert result:', { data, error });
       if (error) {
         console.error('Error creating activity:', error);
         return null;
       }
-
       // Add creator as attendee
       await this.joinActivity(data.id, userId);
-
       return this.getActivityById(data.id);
     } catch (error) {
       console.error('Error in createActivity:', error);

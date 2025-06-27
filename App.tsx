@@ -19,6 +19,7 @@ import { CreateActivityModal } from './components/activity/CreateActivityModal';
 import { BottomNavigation } from './components/layout/BottomNavigation';
 import { Activity, CreateActivityData, User, JoinRequest, DirectMessageChat, ChatMessage } from './types';
 import { mockActivities } from './data/mockData';
+import { activityService } from './services/activityService';
 
 type AppFlowState = 'landing' | 'auth' | 'socialIntegration' | 'locationPermission' | 'loadingPersonality' | 'mainApp';
 type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail';
@@ -338,20 +339,16 @@ function App() {
     }, 2000);
   };
 
-  const handleCreateActivity = (activityData: CreateActivityData) => {
+  const handleCreateActivity = async (activityData: CreateActivityData) => {
     if (!user) return;
-
-    const newActivity: Activity = {
-      id: Date.now().toString(),
-      ...activityData,
-      currentAttendees: 1,
-      createdBy: user,
-      attendees: [user],
-      pendingUsers: [],
-      tags: activityData.tags,
-    };
-
-    setActivities(prev => [newActivity, ...prev]);
+    console.log('App: handleCreateActivity called with', activityData, user.id);
+    const created = await activityService.createActivity(activityData, user.id);
+    console.log('App: activityService.createActivity result:', created);
+    if (created) {
+      setActivities(prev => [created, ...prev]);
+    } else {
+      alert('Failed to create activity');
+    }
   };
 
   const handleOpenActivity = (activity: Activity) => {

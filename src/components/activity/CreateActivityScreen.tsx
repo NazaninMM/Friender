@@ -1,3 +1,5 @@
+console.log('CreateActivityScreen rendered');
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin, Clock, Users, Tag, Calendar } from 'lucide-react';
@@ -6,6 +8,8 @@ import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
 import { CreateActivityData, ActivityCategory } from '../../types';
 import { categoryIcons, categoryColors } from '../../constants/categories';
+import { activityService } from '../../lib/database';
+import { useAuth } from '../../hooks/useAuth';
 
 interface CreateActivityScreenProps {
   onCreateActivity: (activity: CreateActivityData) => void;
@@ -24,15 +28,49 @@ export const CreateActivityScreen: React.FC<CreateActivityScreenProps> = ({ onCr
   });
 
   const [newTag, setNewTag] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const { user } = useAuth();
 
   const categories: ActivityCategory[] = [
     'food', 'sports', 'culture', 'outdoor', 'social', 'learning', 'entertainment', 'wellness'
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.title && formData.description && formData.location && formData.time) {
-      onCreateActivity(formData);
+    setError(null);
+    setSuccess(false);
+    if (!formData.title || !formData.description || !formData.location || !formData.time) return;
+    if (!user) {
+      setError('You must be logged in to create an activity.');
+      return;
+    }
+    setLoading(true);
+    try {
+      console.log('Creating activity with:', formData, user?.id);
+      const created = await activityService.createActivity(formData, user?.id);
+      console.log('Created activity result:', created);
+      if (created) {
+        setSuccess(true);
+        setFormData({
+          title: '',
+          description: '',
+          location: '',
+          date: new Date(),
+          time: '',
+          maxAttendees: 4,
+          category: 'social',
+          tags: [],
+        });
+        if (onCreateActivity) onCreateActivity(formData);
+      } else {
+        setError('Failed to create activity.');
+      }
+    } catch (err) {
+      setError('An error occurred.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -247,12 +285,14 @@ export const CreateActivityScreen: React.FC<CreateActivityScreenProps> = ({ onCr
                 )}
               </div>
 
+              {error && <div className="text-red-500 text-sm">{error}</div>}
+              {success && <div className="text-green-600 text-sm">Activity created successfully!</div>}
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!formData.title || !formData.description || !formData.location || !formData.time}
+                disabled={!formData.title || !formData.description || !formData.location || !formData.time || loading || !user}
               >
-                Create Activity
+                {loading ? 'Creating...' : 'Create Activity'}
               </Button>
             </form>
           </Card>
