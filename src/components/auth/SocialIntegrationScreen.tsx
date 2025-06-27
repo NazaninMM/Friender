@@ -51,11 +51,10 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
-  const [showSpotifyModal, setShowSpotifyModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState('');
   const [copied, setCopied] = useState(false);
-  const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const [pastedJson, setPastedJson] = useState('');
 
   const chatGptPrompt = `write everything you know or can confidently infer about me in a json file using the following datapoints as lowercase c++-safe variable names with underscores only. use previous conversations and contextual knowledge to fill in as many fields as possible, even if exact answers were not explicitly stated. only leave a field blank ("") if absolutely no information or strong guess is available. do not ask questions or request clarification. just return the final json object, fully populated and ready to be parsed by a program. here are the datapoints: first_name, age, gender, pronouns, sexual_orientation, relationship_status, nationality, location, timezone, languages_spoken, religion, ethnicity, political_views, education_level, occupation, work_schedule, student_status, income_range, living_situation, willingness_to_relocate, myers_briggs_type, enneagram_type, personality_type, outlook, competitiveness, humor_style, love_language, conflict_resolution_style, cleanliness_level, pet_peeves, sleep_schedule, wake_up_time, bedtime, diet, alcohol_use, smoking_habits, drug_use, fitness_level, exercise_routine, indoor_vs_outdoor, chronotype, workday_schedule, weekend_habits, preferred_activity_time, social_energy_level, favorite_music_genres, favorite_movies_shows, favorite_books, gaming_interests, travel_preferences, favorite_places_to_hang, sports, hobbies, cooking_interest, artistic_interests, communication_style, response_time_habits, conversation_depth, social_media_usage, contact_frequency, contact_preference, partying_preference, gifting_behavior, cooking_behavior, gpt_opinion, hangout_frequency, friendship_depth, friendship_duration_pref, online_friendship_ok, long_distance_friendship_ok, willingness_to_travel_to_meet, supportive_experience, comfort_with_vulnerability, noise_tolerance, cleanliness_habits, overnight_guest_opinion, sharing_items, room_temp_pref, pet_allergies, childcare_plans, home_decor_style, career_goals, work_life_balance, remote_vs_office, networking_interest, volunteering_interest, financial_priority, lazy_day_importance, privacy_boundaries, open_mindedness, supportiveness, inclusivity, core_values, social_justice_stance, dealbreakers, personality_conflicts_to_avoid, activities_to_avoid, top_3_values, ideal_friend_traits.`;
 
@@ -65,8 +64,6 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
       if (event.origin !== window.location.origin) return;
       console.log('Raw event data:', event.data);
       if (event.data.type === 'SPOTIFY_OAUTH_SUCCESS') {
-        setSpotifyConnecting(false);
-        setShowSpotifyModal(false);
         // Mark Spotify as connected
         setServices(prev =>
           prev.map(service =>
@@ -76,22 +73,15 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
           )
         );
       } else if (event.data.type === 'SPOTIFY_OAUTH_ERROR') {
-        setSpotifyConnecting(false);
-        setShowSpotifyModal(false);
         alert('Failed to connect Spotify. Please try again.');
       } else if (event.data.type === 'SPOTIFY_OAUTH_SPOTIFY_DATA') {
         console.log('Received Spotify data:', event.data.data);
-        setSpotifyConnecting(true);
         if (!user) {
-          setSpotifyConnecting(false);
-          setShowSpotifyModal(false);
           alert('Please log in to connect Spotify.');
           return;
         }
         saveSpotifyDataToSupabase(event.data.data, user)
           .then(() => {
-            setSpotifyConnecting(false);
-            setShowSpotifyModal(false);
             // Mark Spotify as connected
             setServices(prev =>
               prev.map(service =>
@@ -102,8 +92,6 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
             );
           })
           .catch((err) => {
-            setSpotifyConnecting(false);
-            setShowSpotifyModal(false);
             alert('Failed to save Spotify data: ' + (err?.message || err));
           });
       }
@@ -121,45 +109,29 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
           alert('Please log in to connect Spotify.');
           return;
         }
-
-        setSpotifyConnecting(true);
-        setShowSpotifyModal(true);
-        
-        // Store user ID in localStorage for the popup to access
-        localStorage.setItem('spotify_user_id', user.id);
-        
         // Import the Spotify OAuth function
         const { getSpotifyAuthUrl } = await import('../../lib/spotify');
-        
         // Generate Spotify OAuth URL
         const authUrl = getSpotifyAuthUrl();
-        
         // Open OAuth in a popup window
         const popup = window.open(
           authUrl,
           'spotify-oauth',
           'width=500,height=600,scrollbars=yes,resizable=yes'
         );
-        
         if (!popup) {
           throw new Error('Popup blocked. Please allow popups for this site.');
         }
-        
         // Check if popup was closed
         const checkClosed = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkClosed);
-            setSpotifyConnecting(false);
-            setShowSpotifyModal(false);
             // Clean up the user ID from localStorage
             localStorage.removeItem('spotify_user_id');
           }
         }, 1000);
-        
       } catch (error) {
         console.error('Failed to initiate Spotify OAuth:', error);
-        setSpotifyConnecting(false);
-        setShowSpotifyModal(false);
         // Clean up the user ID from localStorage
         localStorage.removeItem('spotify_user_id');
         // Show a more specific error message
@@ -168,7 +140,10 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
       }
       return;
     }
-
+    if (serviceId === 'openai') {
+      setShowUploadModal(true);
+      return;
+    }
     // Default mock behavior for Instagram, Google Play, etc.
     setServices(prev =>
       prev.map(service =>
@@ -195,30 +170,90 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
     }]);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  // Add this function to process and validate OpenAI data
+  function processOpenAIData(rawData: unknown) {
+    if (typeof rawData !== 'object' || rawData === null) {
+      throw new Error('Invalid data format: not an object');
+    }
+    const data = rawData as Record<string, unknown>;
+    // Remove required field checks
+    // Normalize age if present
+    if (typeof data.age !== 'undefined') {
+      if (typeof data.age === 'string' || typeof data.age === 'number') {
+        const ageNum = Number(data.age);
+        data.age = isNaN(ageNum) ? null : ageNum;
+      } else {
+        data.age = null;
+      }
+    }
+    // Normalize comma-separated lists to arrays for some fields if present
+    const arrayFields = [
+      'languages_spoken',
+      'favorite_music_genres',
+      'favorite_movies_shows',
+      'hobbies',
+      'core_values',
+      'top_3_values',
+      'ideal_friend_traits'
+    ];
+    for (const field of arrayFields) {
+      if (typeof data[field] === 'string') {
+        data[field] = (data[field] as string)
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+      }
+    }
+    return data;
+  }
+
+  const handleFileUpload: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+    const file: File | undefined = event.target.files?.[0];
     setUploadError('');
-    
     if (file) {
       if (file.type !== 'application/json') {
         setUploadError('Please upload a JSON file from your ChatGPT data export.');
         return;
       }
-      
       if (file.size > 50 * 1024 * 1024) { // 50MB limit
         setUploadError('File is too large. Please ensure your export is under 50MB.');
         return;
       }
-
-      setUploadedFile(file);
-      setServices(prev => 
-        prev.map(service => 
-          service.id === 'openai' 
-            ? { ...service, connected: true }
-            : service
-        )
-      );
-      setShowUploadModal(false);
+      try {
+        const text = await file.text();
+        const rawData = JSON.parse(text);
+        const processedData = processOpenAIData(rawData);
+        // Save to Supabase user_openai_analysis table
+        const { supabase } = await import('../../lib/supabase');
+        if (!user?.id) throw new Error('Not logged in');
+        // Upsert analysis
+        const { error: upsertError } = await supabase
+          .from('user_openai_analysis')
+          .upsert({ user_id: user.id, analysis: processedData }, { onConflict: 'user_id' });
+        if (upsertError) throw upsertError;
+        // Mark OpenAI as connected
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('connected_services')
+          .eq('id', user.id)
+          .single();
+        const currentServices = Array.isArray(profile?.connected_services) ? profile.connected_services : [];
+        if (!currentServices.includes('openai')) {
+          const updatedServices = [...currentServices, 'openai'];
+          await supabase.from('profiles').update({ connected_services: updatedServices }).eq('id', user.id);
+        }
+        setUploadedFile(file);
+        setServices(prev =>
+          prev.map((service: ConnectedService) =>
+            service.id === 'openai'
+              ? { ...service, connected: true }
+              : service
+          )
+        );
+        setShowUploadModal(false);
+      } catch (err: unknown) {
+        setUploadError(err instanceof Error ? err.message : 'Failed to process or save your data.');
+      }
     }
   };
 
@@ -599,6 +634,56 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
                     </p>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-8">
+                <h4 className="font-bold text-blue-900 mb-2">Or Paste JSON Data</h4>
+                <textarea
+                  className="w-full min-h-[120px] border border-gray-300 rounded-lg p-2 text-sm font-mono"
+                  placeholder="Paste your OpenAI JSON here..."
+                  value={pastedJson}
+                  onChange={e => setPastedJson(e.target.value)}
+                />
+                <Button
+                  className="mt-2"
+                  onClick={async () => {
+                    setUploadError('');
+                    try {
+                      const rawData = JSON.parse(pastedJson);
+                      const processedData = processOpenAIData(rawData);
+                      const { supabase } = await import('../../lib/supabase');
+                      if (!user?.id) throw new Error('Not logged in');
+                      const { error: upsertError } = await supabase
+                        .from('user_openai_analysis')
+                        .upsert({ user_id: user.id, analysis: processedData }, { onConflict: 'user_id' });
+                      if (upsertError) throw upsertError;
+                      const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('connected_services')
+                        .eq('id', user.id)
+                        .single();
+                      const currentServices = Array.isArray(profile?.connected_services) ? profile.connected_services : [];
+                      if (!currentServices.includes('openai')) {
+                        const updatedServices = [...currentServices, 'openai'];
+                        await supabase.from('profiles').update({ connected_services: updatedServices }).eq('id', user.id);
+                      }
+                      setUploadedFile(null); // No file, but mark as uploaded
+                      setServices(prev =>
+                        prev.map((service: ConnectedService) =>
+                          service.id === 'openai'
+                            ? { ...service, connected: true }
+                            : service
+                        )
+                      );
+                      setShowUploadModal(false);
+                      setPastedJson('');
+                    } catch (err: unknown) {
+                      setUploadError(err instanceof Error ? err.message : 'Failed to process or save your data.');
+                    }
+                  }}
+                >
+                  Save Pasted JSON
+                </Button>
               </div>
             </div>
           </motion.div>
