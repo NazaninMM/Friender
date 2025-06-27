@@ -45,6 +45,9 @@ function App() {
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [directChats, setDirectChats] = useState<DirectMessageChat[]>([]);
 
+  // Add state to track onboarding mode
+  const [onboardingMode, setOnboardingMode] = useState<'signup' | 'signin' | null>(null);
+
   console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState);
 
   // Handle authentication state changes
@@ -104,9 +107,10 @@ function App() {
     setAppFlowState('auth');
   };
 
-  const handleAuthSuccess = () => {
-    // This function is called when auth is successful
-    // The useEffect above will handle the transition based on user.connectedServices
+  const handleAuthSuccess = (mode?: 'signup' | 'signin') => {
+    // Set onboarding mode
+    setOnboardingMode(mode || null);
+    // The useEffect below will handle the transition based on user.connectedServices
     console.log('App: handleAuthSuccess called - user will be redirected based on onboarding status');
     // Fallback: If we have a user but are still in auth state, force transition
     if (user && appFlowState === 'auth') {
@@ -115,7 +119,12 @@ function App() {
       if (hasCompletedOnboarding) {
         setAppFlowState('mainApp');
       } else {
-        setAppFlowState('socialIntegration');
+        // Only show socialIntegration if just signed up
+        if (onboardingMode === 'signup') {
+          setAppFlowState('socialIntegration');
+        } else {
+          setAppFlowState('locationPermission');
+        }
       }
     }
   };
@@ -238,13 +247,13 @@ function App() {
     setCurrentScreen('direct-chat');
   };
 
-  const handleJoinActivity = (activityId: string) => {
+  const handleJoinActivity = async (activityId: string) => {
     if (!user) return;
-
+  
     const activity = activities.find(a => a.id === activityId);
     if (!activity) return;
-
-    // Create a join request
+  
+    // Create a join request (local state/UI only)
     const joinRequest: JoinRequest = {
       id: Date.now().toString(),
       activityId: activityId,
@@ -255,10 +264,10 @@ function App() {
       timestamp: new Date(),
       status: 'pending',
     };
-
+  
     setJoinRequests(prev => [...prev, joinRequest]);
-
-    // Add user to pending list
+  
+    // Add user to pending list (local UI)
     setActivities(prev => prev.map(a => {
       if (a.id === activityId) {
         return {
@@ -269,7 +278,12 @@ function App() {
       }
       return a;
     }));
-
+  
+    // Call backend to join activity
+    console.log('App: handleJoinActivity called with', activityId, user.id);
+    const result = await activityService.joinActivity(activityId, user.id);
+    console.log('App: activityService.joinActivity result:', result);
+  
     // Create or open direct chat with the activity host
     createOrOpenDirectChat(activity.createdBy, {
       activityId: activity.id,
@@ -547,13 +561,17 @@ function App() {
     console.log('App: Showing auth screen');
     return (
       <AuthScreen 
-        onAuthSuccess={handleAuthSuccess}
+        onAuthSuccess={(mode) => handleAuthSuccess(mode)}
         onBack={handleBackFromAuth}
       />
     );
   }
 
   if (appFlowState === 'socialIntegration') {
+    if (onboardingMode !== 'signup') {
+      setAppFlowState('locationPermission');
+      return null;
+    }
     console.log('App: Showing social integration screen');
     return (
       <SocialIntegrationScreen 

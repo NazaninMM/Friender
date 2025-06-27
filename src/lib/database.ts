@@ -291,24 +291,28 @@ export const activityService = {
   // Join activity
   async joinActivity(activityId: string, userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
+      console.log('joinActivity: called with activityId:', activityId, 'userId:', userId);
+      const { error: insertError, data: insertData } = await supabase
         .from('activity_attendees')
         .insert({
           activity_id: activityId,
           user_id: userId,
+          status: 'joined',
           joined_at: new Date().toISOString(),
         });
+      console.log('joinActivity: activity_attendees insert result:', insertData, 'error:', insertError);
 
-      if (error) {
-        console.error('Error joining activity:', error);
+      if (insertError) {
+        console.error('Error joining activity:', insertError);
         return false;
       }
 
       // Update activity attendee count
-      await supabase
+      const attendeeCountUpdate = await supabase
         .from('activities')
         .update({ current_attendees: supabase.rpc('increment') })
         .eq('id', activityId);
+      console.log('joinActivity: attendee count update:', attendeeCountUpdate);
 
       return true;
     } catch (error) {

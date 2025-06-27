@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { LocationCaptureScreen } from './LocationCaptureScreen';
 
 interface AuthScreenProps {
-  onAuthSuccess?: () => void;
+  onAuthSuccess?: (mode?: 'signup' | 'signin') => void;
   onBack?: () => void;
 }
 
@@ -56,7 +56,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
       if (result.success) {
         console.log('✅ AuthScreen: Sign up successful');
         console.log('🔄 AuthScreen: Calling onAuthSuccess...');
-        onAuthSuccess?.();
+        onAuthSuccess?.('signup');
         console.log('✅ AuthScreen: onAuthSuccess called');
       } else {
         console.log('❌ AuthScreen: Sign up failed');
@@ -91,7 +91,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
       if (result.success) {
         console.log('✅ AuthScreen: Sign up successful');
         console.log('🔄 AuthScreen: Calling onAuthSuccess...');
-        onAuthSuccess?.();
+        onAuthSuccess?.('signup');
         console.log('✅ AuthScreen: onAuthSuccess called');
       } else {
         console.log('❌ AuthScreen: Sign up failed');
@@ -148,7 +148,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
           setLoading(false);
         } else {
           console.log('✅ AuthScreen: Sign in successful');
-          onAuthSuccess?.(); // Call without parameters
+          onAuthSuccess?.('signin');
         }
       } else {
         console.log('📝 AuthScreen: Processing sign up...');
