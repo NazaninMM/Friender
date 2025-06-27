@@ -7,7 +7,8 @@ import { SocialIntegrationScreen } from './components/auth/SocialIntegrationScre
 import { LocationPermissionScreen } from './components/auth/LocationPermissionScreen';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { HomeScreen } from './components/home/HomeScreen';
-import { ChatsList } from './components/chat/ChatsList';
+import { ChatsScreen } from './components/chat/ChatsScreen';
+import { ChatScreen } from './components/chat/ChatScreen';
 import { ActivitiesList } from './components/activities/ActivitiesList';
 import { ProfileScreen } from './components/profile/ProfileScreen';
 import { SettingsScreen } from './components/settings/SettingsScreen';
@@ -21,7 +22,7 @@ import { Activity, CreateActivityData, User, JoinRequest, DirectMessageChat, Cha
 import { activityService } from './lib/database';
 
 type AppFlowState = 'landing' | 'auth' | 'socialIntegration' | 'locationPermission' | 'loadingPersonality' | 'mainApp';
-type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail';
+type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail' | 'chat';
 type MainTab = 'home' | 'chats' | 'activities' | 'profile';
 
 function App() {
@@ -39,6 +40,7 @@ function App() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [selectedJoinRequest, setSelectedJoinRequest] = useState<JoinRequest | null>(null);
   const [selectedDirectChat, setSelectedDirectChat] = useState<DirectMessageChat | null>(null);
+  const [selectedOtherUser, setSelectedOtherUser] = useState<User | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [showHostRequest, setShowHostRequest] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -175,76 +177,14 @@ function App() {
     setAppFlowState('landing');
   };
 
-  const createOrOpenDirectChat = (otherUser: User, activityContext?: { activityId: string; activityTitle: string; isJoinRequest?: boolean; joinRequestId?: string }) => {
-    if (!user) return;
+  const handleOpenChat = (otherUser: User) => {
+    setSelectedOtherUser(otherUser);
+    setCurrentScreen('chat');
+  };
 
-    // Check if a direct chat already exists with this user for this activity context
-    const existingChat = directChats.find(chat => 
-      chat.participants.some(p => p.id === otherUser.id) &&
-      chat.activityContext?.activityId === activityContext?.activityId
-    );
-
-    if (existingChat) {
-      // Open existing chat
-      setSelectedDirectChat(existingChat);
-      setCurrentScreen('direct-chat');
-      return;
-    }
-
-    // Create new direct chat
-    const newDirectChat: DirectMessageChat = {
-      id: `direct-${Date.now()}`,
-      participants: [user, otherUser],
-      messages: [
-        {
-          id: 'welcome-1',
-          userId: 'system',
-          userName: 'System',
-          userImage: '',
-          message: activityContext?.isJoinRequest 
-            ? `Join request sent for "${activityContext.activityTitle}". The host will review your request.`
-            : `You're now connected with ${otherUser.name}!`,
-          timestamp: new Date(),
-          type: 'system',
-        }
-      ],
-      lastMessageTime: new Date(),
-      activityContext: activityContext ? {
-        ...activityContext,
-        linkedJoinRequestId: activityContext.joinRequestId,
-      } : undefined,
-    };
-
-    // Add initial message if there's activity context
-    if (activityContext?.isJoinRequest) {
-      newDirectChat.messages.push({
-        id: 'join-request-message',
-        userId: user.id,
-        userName: user.name,
-        userImage: user.profileImage,
-        message: `Hi ${otherUser.name}! I'd love to join "${activityContext.activityTitle}". This looks like a great activity and I think I'd be a good fit for the group. Looking forward to hearing from you!`,
-        timestamp: new Date(),
-        type: 'text',
-      });
-      newDirectChat.lastMessage = newDirectChat.messages[newDirectChat.messages.length - 1];
-      newDirectChat.lastMessageTime = new Date();
-    } else if (activityContext) {
-      newDirectChat.messages.push({
-        id: 'initial-message',
-        userId: user.id,
-        userName: user.name,
-        userImage: user.profileImage,
-        message: `Hi ${otherUser.name}! I just joined "${activityContext.activityTitle}" and would love to connect. Looking forward to the activity!`,
-        timestamp: new Date(),
-        type: 'text',
-      });
-      newDirectChat.lastMessage = newDirectChat.messages[newDirectChat.messages.length - 1];
-      newDirectChat.lastMessageTime = new Date();
-    }
-
-    setDirectChats(prev => [newDirectChat, ...prev]);
-    setSelectedDirectChat(newDirectChat);
-    setCurrentScreen('direct-chat');
+  const handleBackFromChat = () => {
+    setCurrentScreen('main');
+    setSelectedOtherUser(null);
   };
 
   const handleJoinActivity = async (activityId: string) => {
@@ -284,13 +224,8 @@ function App() {
     const result = await activityService.joinActivity(activityId, user.id);
     console.log('App: activityService.joinActivity result:', result);
   
-    // Create or open direct chat with the activity host
-    createOrOpenDirectChat(activity.createdBy, {
-      activityId: activity.id,
-      activityTitle: activity.title,
-      isJoinRequest: true,
-      joinRequestId: joinRequest.id,
-    });
+    // Open chat with the activity host
+    handleOpenChat(activity.createdBy);
   };
 
   const handleApproveRequest = (requestId: string) => {
@@ -324,20 +259,6 @@ function App() {
       return activity;
     }));
 
-    // Update corresponding direct chat status
-    setDirectChats(prev => prev.map(chat => {
-      if (chat.activityContext?.linkedJoinRequestId === requestId) {
-        return {
-          ...chat,
-          activityContext: {
-            ...chat.activityContext,
-            joinRequestStatus: 'approved',
-          },
-        };
-      }
-      return chat;
-    }));
-
     // Close host request chat
     setShowHostRequest(false);
     setSelectedJoinRequest(null);
@@ -368,37 +289,18 @@ function App() {
       return activity;
     }));
 
-    // Update corresponding direct chat status
-    setDirectChats(prev => prev.map(chat => {
-      if (chat.activityContext?.linkedJoinRequestId === requestId) {
-        return {
-          ...chat,
-          activityContext: {
-            ...chat.activityContext,
-            joinRequestStatus: 'denied',
-          },
-        };
-      }
-      return chat;
-    }));
-
-    // Close host request chat after a delay
-    setTimeout(() => {
-      setShowHostRequest(false);
-      setSelectedJoinRequest(null);
-    }, 2000);
+    // Close host request chat
+    setShowHostRequest(false);
+    setSelectedJoinRequest(null);
   };
 
   const handleCreateActivity = async (activityData: CreateActivityData) => {
     if (!user) return;
-    console.log('App: handleCreateActivity called with', activityData, user.id);
-    const created = await activityService.createActivity(activityData, user.id);
-    console.log('App: activityService.createActivity result:', created);
-    if (created) {
-      setActivities(prev => [created, ...prev]);
-    } else {
-      alert('Failed to create activity');
+    const newActivity = await activityService.createActivity(activityData, user.id);
+    if (newActivity) {
+      setActivities(prev => [newActivity, ...prev]);
     }
+    setShowCreateModal(false);
   };
 
   const handleOpenActivity = (activity: Activity) => {
@@ -423,71 +325,8 @@ function App() {
   };
 
   const handleSendDirectMessage = (chatId: string, messageText: string) => {
-    if (!user) return;
-
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      userId: user.id,
-      userName: user.name,
-      userImage: user.profileImage,
-      message: messageText,
-      timestamp: new Date(),
-      type: 'text',
-    };
-
-    setDirectChats(prev => prev.map(chat => {
-      if (chat.id === chatId) {
-        const updatedMessages = [...chat.messages, newMessage];
-        return {
-          ...chat,
-          messages: updatedMessages,
-          lastMessage: newMessage,
-          lastMessageTime: new Date(),
-        };
-      }
-      return chat;
-    }));
-
-    // Simulate response from other user
-    setTimeout(() => {
-      const chat = directChats.find(c => c.id === chatId);
-      if (!chat) return;
-
-      const otherParticipant = chat.participants.find(p => p.id !== user.id);
-      if (!otherParticipant) return;
-
-      const responses = [
-        "That sounds great!",
-        "I'm really looking forward to this!",
-        "Thanks for reaching out!",
-        "This is going to be so much fun!",
-        "Can't wait to meet you!",
-        "I'm excited about this activity too!",
-      ];
-
-      const responseMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        userId: otherParticipant.id,
-        userName: otherParticipant.name,
-        userImage: otherParticipant.profileImage,
-        message: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: new Date(),
-        type: 'text',
-      };
-
-      setDirectChats(prev => prev.map(c => {
-        if (c.id === chatId) {
-          const updatedMessages = [...c.messages, responseMessage];
-          return {
-            ...c,
-            messages: updatedMessages,
-            lastMessage: responseMessage,
-            lastMessageTime: new Date(),
-          };
-        }
-        return c;
-      }));
-    }, 1000 + Math.random() * 2000);
+    // This will be handled by the new chat system
+    console.log('Sending direct message:', messageText);
   };
 
   const handleCloseChat = () => {
@@ -504,7 +343,6 @@ function App() {
   const handleBackFromDirectChat = () => {
     setCurrentScreen('main');
     setSelectedDirectChat(null);
-    setCurrentTab('chats');
   };
 
   const handleBackFromActivityDetail = () => {
@@ -513,38 +351,18 @@ function App() {
   };
 
   const handleLeaveActivity = (activityId: string) => {
-    if (!user) return;
-
     setActivities(prev => prev.map(activity => {
       if (activity.id === activityId) {
         return {
           ...activity,
-          attendees: activity.attendees.filter(attendee => attendee.id !== user.id),
+          attendees: activity.attendees.filter(a => a.id !== user?.id),
           currentAttendees: activity.currentAttendees - 1,
           isJoined: false,
         };
       }
       return activity;
     }));
-
-    // Go back to main screen
-    setCurrentScreen('main');
-    setSelectedActivity(null);
   };
-
-  // Show loading screen during initial auth check
-  if (loading) {
-    console.log('App: Showing initial loading screen');
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
-        />
-      </div>
-    );
-  }
 
   // Render based on app flow state
   if (appFlowState === 'landing') {
@@ -609,6 +427,15 @@ function App() {
       <SettingsScreen 
         onLogout={handleLogout}
         onBack={handleBackFromSettings}
+      />
+    );
+  }
+
+  if (currentScreen === 'chat' && selectedOtherUser) {
+    return (
+      <ChatScreen 
+        otherUser={selectedOtherUser}
+        onBack={handleBackFromChat}
       />
     );
   }
@@ -678,16 +505,10 @@ function App() {
           />
         );
       case 'chats':
-        console.log('💬 App: Rendering ChatsList');
+        console.log('💬 App: Rendering ChatsScreen');
         return (
-          <ChatsList 
-            activities={activities}
-            user={user!}
-            joinRequests={joinRequests}
-            directChats={directChats}
-            onOpenChat={handleOpenActivityChat}
-            onOpenHostRequest={handleOpenHostRequest}
-            onOpenDirectChat={handleOpenDirectChat}
+          <ChatsScreen 
+            onOpenChat={handleOpenChat}
           />
         );
       case 'activities':
