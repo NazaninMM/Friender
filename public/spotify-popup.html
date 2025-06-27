@@ -15,6 +15,11 @@
             align-items: center;
             justify-content: center;
         }
+        .container {
+            max-width: 400px;
+            width: 100%;
+            padding: 20px;
+        }
         .loading {
             text-align: center;
             color: white;
@@ -32,17 +37,406 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .step {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 8px 0;
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        .step.loading {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .step.success {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+        .step.error {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+        .step-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+        .step-icon.pending {
+            border: 2px solid #d1d5db;
+        }
+        .step-icon.loading {
+            border: 2px solid #3b82f6;
+            border-top: 2px solid transparent;
+            animation: spin 1s linear infinite;
+        }
+        .step-icon.success {
+            background: #10b981;
+            position: relative;
+        }
+        .step-icon.success::after {
+            content: '✓';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .step-icon.error {
+            background: #ef4444;
+            position: relative;
+        }
+        .step-icon.error::after {
+            content: '✕';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .button {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin: 8px 0;
+        }
+        .button-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .button-primary:hover {
+            background: #2563eb;
+        }
+        .button-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .button-secondary:hover {
+            background: #e5e7eb;
+        }
+        .success-message {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .personality-traits, .genres {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0 16px 0;
+        }
+        .trait, .genre {
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .genre {
+            background: #dbeafe;
+            color: #1e40af;
+        }
     </style>
 </head>
 <body>
-    <div id="root">
-        <div class="loading">
+    <div class="container">
+        <div id="loading-screen" class="loading">
             <div class="spinner"></div>
             <h2>Connecting Spotify...</h2>
             <p>Please wait while we process your authorization.</p>
         </div>
+
+        <div id="sync-screen" style="display: none;">
+            <div class="loading">
+                <div class="spinner"></div>
+                <h2 id="main-title">Connecting Spotify...</h2>
+                <p id="main-description">We're analyzing your music taste to improve your matches</p>
+            </div>
+
+            <div id="steps-container"></div>
+
+            <div id="error-container" style="display: none;"></div>
+            <div id="success-container" style="display: none;"></div>
+
+            <div id="action-buttons" style="display: none;">
+                <button id="retry-button" class="button button-primary">Try Again</button>
+                <button id="close-button" class="button button-secondary">Close</button>
+            </div>
+        </div>
     </div>
-    
-    <script type="module" src="/src/spotify-popup.tsx"></script>
+
+    <script type="module">
+        // Import the existing Spotify functions from the main app
+        import { 
+            exchangeCodeForToken, 
+            fetchSpotifyTopTracks, 
+            fetchSpotifyTopArtists, 
+            analyzeMusicTaste, 
+            saveSpotifyDataToSupabase,
+            getSpotifyProfile
+        } from '/src/lib/spotify.ts';
+
+        // Spotify OAuth Popup Handler with Real API Integration
+        class SpotifyOAuthHandler {
+            constructor() {
+                this.steps = [
+                    { id: 'auth', title: 'Authenticating with Spotify', description: 'Verifying your authorization...' },
+                    { id: 'profile', title: 'Fetching Profile', description: 'Getting your Spotify profile...' },
+                    { id: 'tracks', title: 'Analyzing Top Tracks', description: 'Fetching your favorite songs...' },
+                    { id: 'artists', title: 'Analyzing Top Artists', description: 'Getting your favorite artists...' },
+                    { id: 'analysis', title: 'Analyzing Music Taste', description: 'Understanding your music personality...' },
+                    { id: 'save', title: 'Saving to Profile', description: 'Updating your personality data...' }
+                ];
+                this.currentStep = 0;
+                this.init();
+            }
+
+            init() {
+                console.log('🎵 Starting Spotify OAuth popup...');
+                this.setupEventListeners();
+                this.startSync();
+            }
+
+            setupEventListeners() {
+                document.getElementById('retry-button')?.addEventListener('click', () => {
+                    window.location.reload();
+                });
+
+                document.getElementById('close-button')?.addEventListener('click', () => {
+                    this.notifyParent('error', 'User cancelled');
+                    window.close();
+                });
+            }
+
+            async startSync() {
+                try {
+                    // Show sync screen
+                    document.getElementById('loading-screen').style.display = 'none';
+                    document.getElementById('sync-screen').style.display = 'block';
+                    this.renderSteps();
+
+                    // Get URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const code = urlParams.get('code');
+                    const state = urlParams.get('state');
+                    const error = urlParams.get('error');
+
+                    console.log('📋 URL Parameters:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error });
+
+                    if (error) {
+                        throw new Error(`Spotify authorization failed: ${error}`);
+                    }
+
+                    if (!code || !state) {
+                        throw new Error('Missing authorization code or state. Please try connecting again.');
+                    }
+
+                    // Start the sync process
+                    await this.performSync(code, state);
+
+                } catch (err) {
+                    console.error('❌ Spotify sync failed:', err);
+                    this.showError(err.message || 'Unknown error occurred');
+                }
+            }
+
+            renderSteps() {
+                const container = document.getElementById('steps-container');
+                container.innerHTML = this.steps.map((step, index) => `
+                    <div class="step" id="step-${step.id}">
+                        <div class="step-icon pending" id="icon-${step.id}"></div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 14px; font-weight: 500;">${step.title}</h3>
+                            <p style="margin: 4px 0 0 0; font-size: 12px; color: #6b7280;">${step.description}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateStep(stepId, status, error = null) {
+                const stepElement = document.getElementById(`step-${stepId}`);
+                const iconElement = document.getElementById(`icon-${stepId}`);
+                
+                if (stepElement && iconElement) {
+                    stepElement.className = `step ${status}`;
+                    iconElement.className = `step-icon ${status}`;
+                    
+                    if (error) {
+                        const errorElement = stepElement.querySelector('p');
+                        if (errorElement) {
+                            errorElement.style.color = '#dc2626';
+                            errorElement.textContent = error;
+                        }
+                    }
+                }
+            }
+
+            async performSync(code, state) {
+                try {
+                    // Step 1: Exchange code for token
+                    console.log('🔑 Step 1: Exchanging code for token...');
+                    this.updateStep('auth', 'loading');
+                    const accessToken = await exchangeCodeForToken(code, state);
+                    if (!accessToken) {
+                        throw new Error('Failed to obtain access token from Spotify');
+                    }
+                    this.updateStep('auth', 'success');
+
+                    // Step 2: Get Spotify profile
+                    console.log('👤 Step 2: Fetching Spotify profile...');
+                    this.updateStep('profile', 'loading');
+                    const profile = await getSpotifyProfile(accessToken);
+                    if (!profile) {
+                        throw new Error('Failed to fetch Spotify profile');
+                    }
+                    this.updateStep('profile', 'success');
+
+                    // Step 3: Fetch top tracks
+                    console.log('🎵 Step 3: Fetching top tracks...');
+                    this.updateStep('tracks', 'loading');
+                    const tracks = await fetchSpotifyTopTracks(accessToken, 'medium_term');
+                    if (tracks.length === 0) {
+                        throw new Error('No tracks found in your Spotify account. Please listen to some music and try again.');
+                    }
+                    this.updateStep('tracks', 'success');
+
+                    // Step 4: Fetch top artists
+                    console.log('🎤 Step 4: Fetching top artists...');
+                    this.updateStep('artists', 'loading');
+                    const artists = await fetchSpotifyTopArtists(accessToken, 'medium_term');
+                    if (artists.length === 0) {
+                        throw new Error('No artists found in your Spotify account. Please listen to some music and try again.');
+                    }
+                    this.updateStep('artists', 'success');
+
+                    // Step 5: Analyze music taste
+                    console.log('🧠 Step 5: Analyzing music taste...');
+                    this.updateStep('analysis', 'loading');
+                    const analysis = analyzeMusicTaste(tracks, artists);
+                    if (!analysis) {
+                        this.showError('Failed to analyze music taste. Please try again.');
+                        return;
+                    }
+                    console.log('Tracks:', tracks);
+                    console.log('Artists:', artists);
+                    console.log('Analysis:', analysis);
+                    console.log('Sending to parent:', { analysis, tracks, artists });
+                    this.notifyParent('spotify_data', { analysis, tracks, artists });
+                    this.updateStep('analysis', 'success');
+
+                    // Step 6: Send data to parent for saving
+                    console.log('💾 Step 6: Sending data to parent window...');
+                    this.updateStep('save', 'loading');
+                    this.notifyParent('spotify_data', {
+                        analysis,
+                        tracks,
+                        artists
+                    });
+                    this.updateStep('save', 'success');
+                    setTimeout(() => window.close(), 2000);
+
+                } catch (err) {
+                    console.error('❌ Step failed:', err);
+                    const currentStep = this.steps[this.currentStep];
+                    this.updateStep(currentStep.id, 'error', err.message);
+                    throw err;
+                }
+            }
+
+            showSuccess(analysis) {
+                document.getElementById('main-title').textContent = 'Spotify Connected! 🎉';
+                document.getElementById('main-description').textContent = 'Your music data has been successfully saved to your profile';
+                
+                // Show music personality traits
+                const successContainer = document.getElementById('success-container');
+                if (successContainer) {
+                    successContainer.innerHTML = `
+                        <div class="success-message">
+                            <h4>Your Music Personality:</h4>
+                            <div class="personality-traits">
+                                ${analysis.musicPersonality.map(trait => 
+                                    `<span class="trait">${trait}</span>`
+                                ).join('')}
+                            </div>
+                            <h4>Top Genres:</h4>
+                            <div class="genres">
+                                ${analysis.topGenres.map(genre => 
+                                    `<span class="genre">${genre}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    `;
+                    successContainer.style.display = 'block';
+                }
+                
+                this.notifyParent('success', {
+                    spotifyConnected: true,
+                    musicPersonality: analysis.musicPersonality,
+                    topGenres: analysis.topGenres
+                });
+
+                setTimeout(() => {
+                    window.close();
+                }, 8000);
+            }
+
+            showError(message) {
+                document.getElementById('main-title').textContent = 'Connection Failed';
+                document.getElementById('main-description').textContent = 'There was an issue connecting your Spotify account';
+                
+                const errorContainer = document.getElementById('error-container');
+                errorContainer.innerHTML = `
+                    <div class="error-message">
+                        <strong>Connection Failed</strong><br>
+                        ${message}
+                    </div>
+                `;
+                errorContainer.style.display = 'block';
+
+                document.getElementById('action-buttons').style.display = 'block';
+                
+                this.notifyParent('error', message);
+            }
+
+            notifyParent(type, data) {
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: `SPOTIFY_OAUTH_${type.toUpperCase()}`,
+                        data
+                    }, window.location.origin);
+                }
+            }
+        }
+
+        // Initialize the handler when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SpotifyOAuthHandler();
+        });
+    </script>
 </body>
 </html> 

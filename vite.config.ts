@@ -7,6 +7,8 @@ export default defineConfig({
     react({
       // Force JSX runtime to be used
       jsxRuntime: 'automatic',
+      // Ensure proper preamble detection
+      include: ['**/*.{jsx,tsx}', '**/*.{js,ts}'],
     })
   ],
   optimizeDeps: {
@@ -20,4 +22,8 @@ export default defineConfig({
       },
     },
   },
+  // Ensure proper handling of popup entry point
+  define: {
+    'process.env.NODE_ENV': '"development"'
+  }
 });

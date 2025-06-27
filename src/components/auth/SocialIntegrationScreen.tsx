@@ -4,7 +4,9 @@ import { Instagram, Music, Gamepad2, Brain, Upload, Check, ArrowRight, X, FileTe
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { ConnectedService } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
+import type { MusicAnalysis, SpotifyTrack, SpotifyArtist } from '../../lib/spotify';
+import type { User } from '../../types';
 
 interface SocialIntegrationScreenProps {
   onComplete: (connectedServices: string[]) => void;
@@ -15,6 +17,7 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
   onComplete, 
   onBack 
 }) => {
+  const { user } = useAuth();
   const [services, setServices] = useState<ConnectedService[]>([
     {
       id: 'instagram',
@@ -60,7 +63,7 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      
+      console.log('Raw event data:', event.data);
       if (event.data.type === 'SPOTIFY_OAUTH_SUCCESS') {
         setSpotifyConnecting(false);
         setShowSpotifyModal(false);
@@ -76,18 +79,54 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
         setSpotifyConnecting(false);
         setShowSpotifyModal(false);
         alert('Failed to connect Spotify. Please try again.');
+      } else if (event.data.type === 'SPOTIFY_OAUTH_SPOTIFY_DATA') {
+        console.log('Received Spotify data:', event.data.data);
+        setSpotifyConnecting(true);
+        if (!user) {
+          setSpotifyConnecting(false);
+          setShowSpotifyModal(false);
+          alert('Please log in to connect Spotify.');
+          return;
+        }
+        saveSpotifyDataToSupabase(event.data.data, user)
+          .then(() => {
+            setSpotifyConnecting(false);
+            setShowSpotifyModal(false);
+            // Mark Spotify as connected
+            setServices(prev =>
+              prev.map(service =>
+                service.id === 'spotify'
+                  ? { ...service, connected: true }
+                  : service
+              )
+            );
+          })
+          .catch((err) => {
+            setSpotifyConnecting(false);
+            setShowSpotifyModal(false);
+            alert('Failed to save Spotify data: ' + (err?.message || err));
+          });
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [user]);
 
   const handleConnect = async (serviceId: string) => {
     if (serviceId === 'spotify') {
       try {
+        // Check if user is logged in
+        if (!user?.id) {
+          alert('Please log in to connect Spotify.');
+          return;
+        }
+
         setSpotifyConnecting(true);
         setShowSpotifyModal(true);
+        
+        // Store user ID in localStorage for the popup to access
+        localStorage.setItem('spotify_user_id', user.id);
         
         // Import the Spotify OAuth function
         const { getSpotifyAuthUrl } = await import('../../lib/spotify');
@@ -112,6 +151,8 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
             clearInterval(checkClosed);
             setSpotifyConnecting(false);
             setShowSpotifyModal(false);
+            // Clean up the user ID from localStorage
+            localStorage.removeItem('spotify_user_id');
           }
         }, 1000);
         
@@ -119,6 +160,8 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
         console.error('Failed to initiate Spotify OAuth:', error);
         setSpotifyConnecting(false);
         setShowSpotifyModal(false);
+        // Clean up the user ID from localStorage
+        localStorage.removeItem('spotify_user_id');
         // Show a more specific error message
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
         alert(`Failed to connect Spotify: ${errorMessage}\n\nPlease check the developer console for more details.`);
@@ -201,6 +244,63 @@ export const SocialIntegrationScreen: React.FC<SocialIntegrationScreenProps> = (
 
   const connectedServices = services.filter(service => service.connected);
   const canContinue = connectedServices.length >= 2;
+
+  // Add the saveSpotifyDataToSupabase function
+  async function saveSpotifyDataToSupabase(
+    { analysis, tracks, artists }: { analysis: MusicAnalysis; tracks: SpotifyTrack[]; artists: SpotifyArtist[] },
+    user: User
+  ) {
+    console.log('Received Spotify data:', { analysis, tracks, artists });
+    if (!user?.id) throw new Error('Not logged in');
+    if (!analysis || !analysis.topGenres || !analysis.musicPersonality) {
+      throw new Error('Spotify analysis data is missing or invalid');
+    }
+    const { supabase } = await import('../../lib/supabase');
+    // Save music analysis
+    await supabase.from('user_music_analysis').upsert({
+      user_id: user.id,
+      top_genres: analysis.topGenres,
+      music_personality: analysis.musicPersonality,
+      audio_features_summary: analysis.audioFeatures,
+      mood_analysis: analysis.moods
+    }, { onConflict: 'user_id' });
+    // Save top tracks
+    for (const track of tracks.slice(0, 20)) {
+      await supabase.from('user_spotify_tracks').upsert({
+        user_id: user.id,
+        spotify_id: track.id,
+        name: track.name,
+        artist_names: track.artists.map((a: { name: string }) => a.name),
+        album_name: track.album?.name || 'Unknown',
+        popularity: track.popularity || 0
+      }, { onConflict: 'user_id,spotify_id' });
+    }
+    // Save top artists
+    for (const artist of artists.slice(0, 20)) {
+      await supabase.from('user_spotify_artists').upsert({
+        user_id: user.id,
+        spotify_id: artist.id,
+        name: artist.name,
+        genres: artist.genres || [],
+        popularity: artist.popularity || 0
+      }, { onConflict: 'user_id,spotify_id' });
+    }
+    // Update connected_services in profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('connected_services')
+      .eq('id', user.id)
+      .single();
+    if (profileError) {
+      console.warn('Could not fetch profile for connected_services update:', profileError);
+      return;
+    }
+    const currentServices = Array.isArray(profile.connected_services) ? profile.connected_services : [];
+    if (!currentServices.includes('spotify')) {
+      const updatedServices = [...currentServices, 'spotify'];
+      await supabase.from('profiles').update({ connected_services: updatedServices }).eq('id', user.id);
+    }
+  }
 
   return (
     <>
