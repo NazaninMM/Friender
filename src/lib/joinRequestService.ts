@@ -357,4 +357,58 @@ export const joinRequestService = {
       return false;
     }
   },
+
+  // Get all join requests for a user (both as requester and as host)
+  async getUserJoinRequests(userId: string): Promise<JoinRequest[]> {
+    try {
+      // Get join requests where user is the requester
+      const { data: requesterRequests, error: requesterError } = await supabase
+        .from('join_requests')
+        .select(`
+          *,
+          requester:profiles!join_requests_requester_id_fkey(*),
+          activities!join_requests_activity_id_fkey(*)
+        `)
+        .eq('requester_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (requesterError) {
+        console.error('Error fetching requester join requests:', requesterError);
+        return [];
+      }
+
+      // Get join requests for activities where user is the host
+      const { data: hostRequests, error: hostError } = await supabase
+        .from('join_requests')
+        .select(`
+          *,
+          requester:profiles!join_requests_requester_id_fkey(*),
+          activities!join_requests_activity_id_fkey(*)
+        `)
+        .eq('activities.created_by', userId)
+        .order('created_at', { ascending: false });
+
+      if (hostError) {
+        console.error('Error fetching host join requests:', hostError);
+        return [];
+      }
+
+      // Combine and transform all requests
+      const allRequests = [...(requesterRequests || []), ...(hostRequests || [])];
+
+      return allRequests.map((request: any) => ({
+        id: request.id,
+        activityId: request.activity_id,
+        requesterId: request.requester_id,
+        requesterName: request.requester.name || `${request.requester.first_name} ${request.requester.last_name}`,
+        requesterImage: request.requester.profile_image || '',
+        message: request.message,
+        timestamp: new Date(request.created_at),
+        status: request.status,
+      }));
+    } catch (error) {
+      console.error('Error in getUserJoinRequests:', error);
+      return [];
+    }
+  },
 };

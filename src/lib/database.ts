@@ -115,15 +115,15 @@ export const userService = {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching all users:', error);
+        console.error('Error fetching users:', error);
         return [];
       }
 
-      return data.map(user => ({
+      return data.map((user: any) => ({
         id: user.id,
         firstName: user.first_name,
         lastName: user.last_name,
-        name: user.name,
+        name: user.name || `${user.first_name} ${user.last_name}`,
         email: user.email,
         age: user.age,
         profileImage: user.profile_image || '',
@@ -162,7 +162,7 @@ export const activityService = {
 
       // Get attendees for each activity
       const activitiesWithAttendees = await Promise.all(
-        data.map(async (activity) => {
+        data.map(async (activity: any) => {
           const attendees = await this.getActivityAttendees(activity.id);
           return {
             id: activity.id,
@@ -354,7 +354,7 @@ export const activityService = {
         return [];
       }
 
-      return data.map(attendee => ({
+      return data.map((attendee: any) => ({
         id: attendee.profiles.id,
         firstName: attendee.profiles.first_name,
         lastName: attendee.profiles.last_name,
@@ -373,6 +373,134 @@ export const activityService = {
     } catch (error) {
       console.error('Error in getActivityAttendees:', error);
       return [];
+    }
+  },
+
+  // Get user's activities (both created and joined)
+  async getUserActivities(userId: string): Promise<Activity[]> {
+    try {
+      // Get activities created by the user
+      const { data: createdActivities, error: createdError } = await supabase
+        .from('activities')
+        .select(`
+          *,
+          created_by:profiles!activities_created_by_fkey(*)
+        `)
+        .eq('created_by', userId)
+        .order('created_at', { ascending: false });
+
+      if (createdError) {
+        console.error('Error fetching created activities:', createdError);
+        return [];
+      }
+
+      // Get activities the user has joined
+      const { data: joinedActivities, error: joinedError } = await supabase
+        .from('activity_attendees')
+        .select(`
+          activity_id,
+          activities!activity_attendees_activity_id_fkey(
+            *,
+            created_by:profiles!activities_created_by_fkey(*)
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('status', 'joined');
+
+      if (joinedError) {
+        console.error('Error fetching joined activities:', joinedError);
+        return [];
+      }
+
+      // Combine and deduplicate activities
+      const allActivities = [
+        ...(createdActivities || []),
+        ...(joinedActivities?.map((ja: any) => ja.activities) || [])
+      ];
+
+      // Remove duplicates based on activity ID
+      const uniqueActivities = allActivities.filter((activity, index, self) => 
+        index === self.findIndex(a => a.id === activity.id)
+      );
+
+      // Transform to Activity objects
+      const activitiesWithAttendees = await Promise.all(
+        uniqueActivities.map(async (activity: any) => {
+          const attendees = await this.getActivityAttendees(activity.id);
+          return {
+            id: activity.id,
+            title: activity.title,
+            description: activity.description,
+            location: activity.location,
+            date: new Date(activity.date),
+            time: activity.time,
+            maxAttendees: activity.max_attendees,
+            currentAttendees: activity.current_attendees,
+            category: activity.category,
+            createdBy: {
+              id: activity.created_by.id,
+              firstName: activity.created_by.first_name,
+              lastName: activity.created_by.last_name,
+              name: activity.created_by.name || `${activity.created_by.first_name} ${activity.created_by.last_name}`,
+              email: activity.created_by.email,
+              age: activity.created_by.age,
+              profileImage: activity.created_by.profile_image || '',
+              bio: activity.created_by.bio || '',
+              location: activity.created_by.location || '',
+              interests: activity.created_by.interests || [],
+              personalityTraits: activity.created_by.personality_traits || [],
+              joinedActivities: activity.created_by.joined_activities || [],
+              createdActivities: activity.created_by.created_activities || [],
+              connectedServices: activity.created_by.connected_services || [],
+            },
+            attendees,
+            pendingUsers: [],
+            image: activity.image || 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
+            tags: activity.tags || [],
+          };
+        })
+      );
+
+      return activitiesWithAttendees;
+    } catch (error) {
+      console.error('Error in getUserActivities:', error);
+      return [];
+    }
+  },
+
+  // Leave activity
+  async leaveActivity(activityId: string, userId: string): Promise<boolean> {
+    try {
+      // Remove user from activity attendees
+      const { error: deleteError } = await supabase
+        .from('activity_attendees')
+        .delete()
+        .eq('activity_id', activityId)
+        .eq('user_id', userId);
+
+      if (deleteError) {
+        console.error('Error leaving activity:', deleteError);
+        return false;
+      }
+
+      // Update activity attendee count
+      const { error: updateError } = await supabase
+        .from('activities')
+        .update({ 
+          current_attendees: supabase.sql`current_attendees - 1` 
+        })
+        .eq('id', activityId)
+        .gte('current_attendees', 1); // Ensure count doesn't go below 1
+
+      if (updateError) {
+        console.error('Error updating activity attendee count:', updateError);
+        // Don't fail the operation if count update fails
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in leaveActivity:', error);
+      return false;
     }
   }
 };

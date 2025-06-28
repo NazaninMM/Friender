@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { User, ChatMessage } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
-import { chatStorage } from '../../lib/chatStorage';
+import { chatService } from '../../lib/chat';
 
 interface ChatScreenProps {
   otherUser: User;
@@ -19,6 +19,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ otherUser, onBack }) => 
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -29,116 +30,65 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ otherUser, onBack }) => 
     scrollToBottom();
   }, [messages]);
 
-  // Load messages from storage when component mounts
+  // Initialize chat and load messages
   useEffect(() => {
     if (user && otherUser) {
-      setLoading(true);
-      
-      // Load existing messages from storage
-      const storedMessages = chatStorage.getChatMessages(user.id, otherUser.id);
-      
-      if (storedMessages.length > 0) {
-        // Convert stored timestamps back to Date objects
-        const messagesWithDates = storedMessages.map(msg => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        }));
-        setMessages(messagesWithDates);
-        setLoading(false);
-      } else {
-        // No stored messages, create sample conversation
-        setTimeout(() => {
-          const sampleMessages: ChatMessage[] = [
-            {
-              id: '1',
-              userId: otherUser.id,
-              userName: otherUser.name,
-              userImage: otherUser.profileImage || '',
-              message: `Hey! I saw we have a lot in common. Love your taste in music! 🎵`,
-              timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-              type: 'text',
-            },
-            {
-              id: '2',
-              userId: user.id,
-              userName: user.name,
-              userImage: user.profileImage || '',
-              message: "Thanks! I noticed you're into hiking too. Have you explored any good trails lately?",
-              timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000),
-              type: 'text',
-            },
-            {
-              id: '3',
-              userId: otherUser.id,
-              userName: otherUser.name,
-              userImage: otherUser.profileImage || '',
-              message: "Actually yes! Just did an amazing hike last weekend. The views were incredible. What about you?",
-              timestamp: new Date(Date.now() - 30 * 60 * 1000),
-              type: 'text',
-            },
-          ];
-          setMessages(sampleMessages);
-          // Save sample messages to storage
-          chatStorage.saveChatMessages(user.id, otherUser.id, sampleMessages);
+      const initializeChat = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          
+          // Get or create chat
+          const newChatId = await chatService.getOrCreateChat(otherUser.id);
+          setChatId(newChatId);
+          
+          // Load existing messages
+          const chatMessages = await chatService.getChatMessages(newChatId);
+          setMessages(chatMessages);
+          
+        } catch (err) {
+          console.error('Error initializing chat:', err);
+          setError('Failed to load chat');
+        } finally {
           setLoading(false);
-        }, 500);
-      }
+        }
+      };
+
+      initializeChat();
     }
   }, [user, otherUser]);
 
+  // Subscribe to real-time messages
+  useEffect(() => {
+    if (!chatId) return;
+
+    const unsubscribe = chatService.subscribeToMessages(chatId, (newMessage) => {
+      setMessages(prev => {
+        // Avoid duplicate messages
+        if (prev.some(msg => msg.id === newMessage.id)) {
+          return prev;
+        }
+        return [...prev, newMessage];
+      });
+    });
+
+    return unsubscribe;
+  }, [chatId]);
+
   const handleSend = async () => {
-    if (!message.trim() || sending || !user) return;
+    if (!message.trim() || sending || !user || !chatId) return;
 
     try {
       setSending(true);
+      setError(null);
       
-      // Add user message
-      const userMessage: ChatMessage = {
-        id: Date.now().toString(),
-        userId: user.id,
-        userName: user.name,
-        userImage: user.profileImage || '',
-        message: message.trim(),
-        timestamp: new Date(),
-        type: 'text',
-      };
-
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
+      // Send message through database
+      const newMessage = await chatService.sendMessage(chatId, message.trim());
+      
+      // Add to local state (will also be added via real-time subscription)
+      setMessages(prev => [...prev, newMessage]);
       setMessage('');
-
-      // Save to storage
-      chatStorage.saveChatMessages(user.id, otherUser.id, updatedMessages);
-
-      // Simulate response from other user
-      setTimeout(() => {
-        const responses = [
-          "That sounds amazing! I'd love to hear more about it.",
-          "We should definitely plan a hike together sometime!",
-          "Your stories are so interesting! Tell me more.",
-          "I'm really enjoying our conversation 😊",
-          "That's so cool! What other activities do you enjoy?",
-          "Thanks for sharing that with me!",
-          "I totally agree with you on that!",
-          "That's such a great point!",
-        ];
-        
-        const response: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          userId: otherUser.id,
-          userName: otherUser.name,
-          userImage: otherUser.profileImage || '',
-          message: responses[Math.floor(Math.random() * responses.length)],
-          timestamp: new Date(),
-          type: 'text',
-        };
-
-        const finalMessages = [...updatedMessages, response];
-        setMessages(finalMessages);
-        
-        // Save response to storage
-        chatStorage.saveChatMessages(user.id, otherUser.id, finalMessages);
-      }, 1000 + Math.random() * 2000);
+      
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message');
@@ -296,7 +246,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ otherUser, onBack }) => 
           
           <Button
             onClick={handleSend}
-            disabled={!message.trim() || sending}
+            disabled={!message.trim() || sending || !chatId}
             className="p-3 rounded-full"
           >
             <Send className="w-4 h-4" />
