@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ArrowRight, Sparkles, MapPin, Calendar, Heart, Shield, Zap, Brain, HelpCircle } from 'lucide-react';
+import { ArrowRight, Sparkles, Heart, Shield, Brain, HelpCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { HowItWorksModal } from '../common/HowItWorksModal';
 
 interface LandingPageProps {
   onSignUp: () => void;
-  onLogin: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onSignUp, onLogin }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onSignUp }) => {
   const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
 
   // Floating shapes animation variants
@@ -132,7 +131,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignUp, onLogin }) =
               transition={{ duration: 0.6, delay: 0.2 }}
               className="mb-8"
             >
-              <motion.div
+              <motion.img
+                src="/logo.png"
+                alt="Friender Logo"
                 animate={{ 
                   rotate: [0, 5, -5, 0],
                   scale: [1, 1.05, 1] 
@@ -143,10 +144,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignUp, onLogin }) =
                   repeatDelay: 3,
                   ease: "easeInOut"
                 }}
-                className="w-24 h-24 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/25"
-              >
-                <Users className="w-12 h-12 text-white" />
-              </motion.div>
+                className="w-24 h-24 mx-auto mb-6 rounded-3xl shadow-2xl shadow-blue-500/25"
+                style={{ background: 'transparent' }}
+              />
             </motion.div>
             
             {/* Enhanced Typography */}
@@ -192,11 +192,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignUp, onLogin }) =
             </motion.div>
           </motion.div>
 
+          {/* CTA Section - Moved above feature cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.0 }}
+            className="space-y-6 mb-16"
+          >
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                onClick={onSignUp}
+                size="lg"
+                className="text-xl px-12 py-4 shadow-2xl hover:shadow-3xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 transform transition-all duration-300"
+              >
+                Discover Your People
+                <motion.div
+                  animate={{ x: [0, 5, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <ArrowRight className="w-6 h-6 ml-3" />
+                </motion.div>
+              </Button>
+            </motion.div>
+
+            {/* How it Works Button */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                onClick={handleHowItWorks}
+                variant="ghost"
+                size="lg"
+                className="text-lg px-8 py-3 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 transition-all duration-300"
+              >
+                <HelpCircle className="w-5 h-5 mr-2" />
+                How it Works
+              </Button>
+            </motion.div>
+          </motion.div>
+
           {/* Feature Cards */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.0 }}
+            transition={{ duration: 0.8, delay: 1.2 }}
             className="grid md:grid-cols-3 gap-8 mb-16"
           >
             {features.map((feature, index) => (
@@ -204,7 +247,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignUp, onLogin }) =
                 key={index}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 1.2 + index * 0.2 }}
+                transition={{ duration: 0.6, delay: 1.4 + index * 0.2 }}
                 whileHover={{ y: -8, scale: 1.02 }}
                 className="group"
               >
@@ -238,72 +281,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignUp, onLogin }) =
             ))}
           </motion.div>
 
-          {/* CTA Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.8 }}
-            className="space-y-6"
+          {/* Footer Text */}
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2.0 }}
+            className="text-sm text-gray-500 mt-8 max-w-md mx-auto"
           >
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Button
-                onClick={onSignUp}
-                size="lg"
-                className="text-xl px-12 py-4 shadow-2xl hover:shadow-3xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 transform transition-all duration-300"
-              >
-                Discover Your People
-                <motion.div
-                  animate={{ x: [0, 5, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  <ArrowRight className="w-6 h-6 ml-3" />
-                </motion.div>
-              </Button>
-            </motion.div>
-            
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Button
-                onClick={onLogin}
-                variant="outline"
-                size="lg"
-                className="text-lg px-10 py-3 border-2 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-300"
-              >
-                Already have an account? Sign In
-              </Button>
-            </motion.div>
-
-            {/* How it Works Button */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Button
-                onClick={handleHowItWorks}
-                variant="ghost"
-                size="lg"
-                className="text-lg px-8 py-3 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 transition-all duration-300"
-              >
-                <HelpCircle className="w-5 h-5 mr-2" />
-                How it Works
-              </Button>
-            </motion.div>
-            
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2.2 }}
-              className="text-sm text-gray-500 mt-8 max-w-md mx-auto"
-            >
-              Join thousands of people who have found their community through Friender. 
-              Your next adventure and new friendships are just a click away.
-            </motion.p>
-          </motion.div>
+            Join thousands of people who have found their community through Friender. 
+            Your next adventure and new friendships are just a click away.
+          </motion.p>
         </div>
       </div>
 
