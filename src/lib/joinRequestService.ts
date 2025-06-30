@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import { User, JoinRequest } from '../types';
-import { activityService } from './database';
 
 export interface JoinRequestChat {
   id: string;
@@ -230,22 +229,13 @@ export const joinRequestService = {
   // Approve a join request
   async approveJoinRequest(joinRequestId: string, hostId: string): Promise<boolean> {
     try {
-      // First get the join request details
-      const { data: joinRequestData, error: fetchError } = await supabase
-        .from('join_requests')
-        .select('activity_id, requester_id')
-        .eq('id', joinRequestId)
-        .single();
-
-      if (fetchError || !joinRequestData) {
-        console.error('Error fetching join request details:', fetchError);
-        return false;
-      }
-
-      // Update join request status (let the database trigger handle updated_at)
+      // Update join request status without relying on updated_at trigger
       const { error: updateError } = await supabase
         .from('join_requests')
-        .update({ status: 'approved' })
+        .update({ 
+          status: 'approved'
+          // Don't include updated_at here, let the trigger handle it
+        })
         .eq('id', joinRequestId);
 
       if (updateError) {
@@ -253,26 +243,10 @@ export const joinRequestService = {
         return false;
       }
 
-      // Add the requester to the activity as an attendee
-      const joinResult = await activityService.joinActivity(
-        joinRequestData.activity_id, 
-        joinRequestData.requester_id
-      );
-
-      if (!joinResult) {
-        console.error('Error adding user to activity');
-        // Revert the join request status if adding to activity fails
-        await supabase
-          .from('join_requests')
-          .update({ status: 'pending' })
-          .eq('id', joinRequestId);
-        return false;
-      }
-
       // Get the chat for this join request
       const { data: chatData, error: chatError } = await supabase
         .from('join_request_chats')
-        .select('id')
+        .select('id, activity_id, requester_id')
         .eq('join_request_id', joinRequestId)
         .single();
 
@@ -299,10 +273,13 @@ export const joinRequestService = {
   // Deny a join request
   async denyJoinRequest(joinRequestId: string, hostId: string): Promise<boolean> {
     try {
-      // Update join request status (let the database trigger handle updated_at)
+      // Update join request status without relying on updated_at trigger
       const { error: updateError } = await supabase
         .from('join_requests')
-        .update({ status: 'rejected' })
+        .update({ 
+          status: 'denied'
+          // Don't include updated_at here, let the trigger handle it
+        })
         .eq('id', joinRequestId);
 
       if (updateError) {
