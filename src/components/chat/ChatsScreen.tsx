@@ -1,21 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { MessageCircle, Search, Clock, Heart, Users, User, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Input } from '../ui/Input';
-import { useAuth } from '../../hooks/useAuth';
-import { joinRequestService, JoinRequestChat } from '../../lib/joinRequestService';
-import { JoinRequestChatScreen } from './JoinRequestChatScreen';
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  MessageCircle,
+  Search,
+  Clock,
+  Heart,
+  Users,
+  User,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
+import { Card } from "../ui/Card";
+import { Input } from "../ui/Input";
+import { useAuth } from "../../hooks/useAuth";
+import {
+  joinRequestService,
+  JoinRequestChat,
+} from "../../lib/joinRequestService";
+import { JoinRequestChatScreen } from "./JoinRequestChatScreen";
 
 interface ChatsScreenProps {
   onOpenChat: (otherUser: any) => void;
+  onProfileClick?: (userId: string) => void;
 }
 
-export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
+export const ChatsScreen: React.FC<ChatsScreenProps> = ({
+  onOpenChat,
+  onProfileClick,
+}) => {
   const { user } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [joinRequestChats, setJoinRequestChats] = useState<JoinRequestChat[]>([]);
-  const [selectedChat, setSelectedChat] = useState<JoinRequestChat | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [joinRequestChats, setJoinRequestChats] = useState<JoinRequestChat[]>(
+    []
+  );
+  const [selectedChat, setSelectedChat] = useState<JoinRequestChat | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,18 +54,18 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
       const chats = await joinRequestService.getUserJoinRequestChats(user.id);
       setJoinRequestChats(chats);
     } catch (err) {
-      console.error('Error loading join request chats:', err);
-      setError('Failed to load chats');
+      console.error("Error loading join request chats:", err);
+      setError("Failed to load chats");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredChats = joinRequestChats.filter(chat => {
+  const filteredChats = joinRequestChats.filter((chat) => {
     const otherUser = chat.hostId === user?.id ? chat.requester : chat.host;
     const activityTitle = chat.activity.title;
     const searchTerm = searchQuery.toLowerCase();
-    
+
     return (
       otherUser.name.toLowerCase().includes(searchTerm) ||
       activityTitle.toLowerCase().includes(searchTerm)
@@ -55,15 +76,15 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    
-    if (hours < 1) return 'Just now';
+
+    if (hours < 1) return "Just now";
     if (hours < 24) return `${hours}h ago`;
     return `${Math.floor(hours / 24)}d ago`;
   };
 
   const getStatusIcon = (chat: JoinRequestChat) => {
     const isHost = user?.id === chat.hostId;
-    
+
     // You would need to fetch the actual join request status
     // For now, we'll assume it's pending
     return (
@@ -79,6 +100,7 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
       <JoinRequestChatScreen
         chat={selectedChat}
         onBack={() => setSelectedChat(null)}
+        onProfileClick={onProfileClick}
       />
     );
   }
@@ -118,7 +140,10 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
         <div className="max-w-md mx-auto">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Messages</h2>
-            <p className="text-gray-600">Join activities to start conversations with hosts and other participants</p>
+            <p className="text-gray-600">
+              Join activities to start conversations with hosts and other
+              participants
+            </p>
           </div>
 
           <div className="flex items-center justify-center py-20">
@@ -130,9 +155,12 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
               <div className="w-20 h-20 bg-gradient-to-r from-primary-100 to-secondary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <MessageCircle className="w-10 h-10 text-primary-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Conversations Yet</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No Conversations Yet
+              </h3>
               <p className="text-gray-600">
-                When you request to join activities, you'll be able to chat with hosts here
+                When you request to join activities, you'll be able to chat with
+                hosts here
               </p>
             </motion.div>
           </div>
@@ -146,7 +174,7 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
       <div className="max-w-md mx-auto">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Messages</h2>
-          
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <Input
@@ -160,9 +188,10 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
 
         <div className="space-y-3">
           {filteredChats.map((chat, index) => {
-            const otherUser = chat.hostId === user?.id ? chat.requester : chat.host;
+            const otherUser =
+              chat.hostId === user?.id ? chat.requester : chat.host;
             const isHost = user?.id === chat.hostId;
-            
+
             return (
               <motion.div
                 key={chat.id}
@@ -170,22 +199,34 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card 
+                <Card
                   className="p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
                   onClick={() => setSelectedChat(chat)}
                 >
                   <div className="flex items-center space-x-4">
                     <div className="relative">
                       <img
-                        src={otherUser.profileImage || '/default-avatar.png'}
+                        src={otherUser.profileImage || "/default-avatar.png"}
                         alt={otherUser.name}
-                        className="w-14 h-14 rounded-full object-cover"
+                        className="w-14 h-14 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
                         onError={(e) => {
-                          e.currentTarget.src = '/default-avatar.png';
+                          e.currentTarget.src = "/default-avatar.png";
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log(
+                            "Profile image clicked for user:",
+                            otherUser.id
+                          );
+                          if (onProfileClick) onProfileClick(otherUser.id);
                         }}
                       />
                       <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full flex items-center justify-center">
-                        {isHost ? <Calendar className="w-3 h-3 text-white" /> : <User className="w-3 h-3 text-white" />}
+                        {isHost ? (
+                          <Calendar className="w-3 h-3 text-white" />
+                        ) : (
+                          <User className="w-3 h-3 text-white" />
+                        )}
                       </div>
                     </div>
 
@@ -199,16 +240,16 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
                           <span>{formatTime(chat.lastMessageAt)}</span>
                         </div>
                       </div>
-                      
+
                       <p className="text-sm text-gray-600 truncate mb-2">
                         {chat.activity.title}
                       </p>
 
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-500">
-                          {isHost ? 'Join request from' : 'Your join request'}
+                          {isHost ? "Join request from" : "Your join request"}
                         </span>
-                        
+
                         {getStatusIcon(chat)}
                       </div>
                     </div>
@@ -221,7 +262,9 @@ export const ChatsScreen: React.FC<ChatsScreenProps> = ({ onOpenChat }) => {
 
         {filteredChats.length === 0 && searchQuery && (
           <div className="text-center py-12">
-            <p className="text-gray-600">No conversations found matching "{searchQuery}"</p>
+            <p className="text-gray-600">
+              No conversations found matching "{searchQuery}"
+            </p>
           </div>
         )}
       </div>

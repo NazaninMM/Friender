@@ -1,17 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Smile, MoreVertical, Calendar, Check, X } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { DirectMessageChat, User, ChatMessage } from '../../types';
+import React, { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  Send,
+  Smile,
+  MoreVertical,
+  Calendar,
+  Check,
+  X,
+} from "lucide-react";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { DirectMessageChat, User, ChatMessage } from "../../types";
 
 interface DirectChatScreenProps {
   directChat: DirectMessageChat;
   user: User;
   onBack: () => void;
-  onSendMessage: (chatId: string, message: string) => void;
+  onSendMessage: (chatId: string, messageText: string) => void;
   onApproveRequest?: (requestId: string) => void;
   onDenyRequest?: (requestId: string) => void;
+  onProfileClick?: (userId: string) => void;
 }
 
 export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
@@ -20,25 +29,31 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
   onBack,
   onSendMessage,
   onApproveRequest,
-  onDenyRequest
+  onDenyRequest,
+  onProfileClick,
 }) => {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Get the other participant (not the current user)
-  const otherParticipant = directChat.participants.find(p => p.id !== user.id) || directChat.participants[0];
-  
+  const otherParticipant =
+    directChat.participants.find((p) => p.id !== user.id) ||
+    directChat.participants[0];
+
   // Check if this is a join request and if current user is the host
   const isJoinRequest = directChat.activityContext?.isJoinRequest;
-  const joinRequestStatus = directChat.activityContext?.joinRequestStatus || 'pending';
+  const joinRequestStatus =
+    directChat.activityContext?.joinRequestStatus || "pending";
   const linkedJoinRequestId = directChat.activityContext?.linkedJoinRequestId;
-  
+
   // Determine if current user is the host (they would receive the join request)
-  const isHost = isJoinRequest && directChat.activityContext?.requesterId !== user.id;
-  const isRequester = isJoinRequest && directChat.activityContext?.requesterId === user.id;
+  const isHost =
+    isJoinRequest && directChat.activityContext?.requesterId !== user.id;
+  const isRequester =
+    isJoinRequest && directChat.activityContext?.requesterId === user.id;
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -46,9 +61,9 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
   }, [directChat.messages]);
 
   const handleSend = () => {
-    if (message.trim() && joinRequestStatus !== 'denied') {
+    if (message.trim() && joinRequestStatus !== "denied") {
       onSendMessage(directChat.id, message.trim());
-      setMessage('');
+      setMessage("");
     }
   };
 
@@ -65,35 +80,41 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
   };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   const formatDate = (date: Date) => {
     const today = new Date();
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return "Today";
     }
     return date.toLocaleDateString();
   };
 
   const getStatusMessage = () => {
     if (!isJoinRequest) return null;
-    
+
     switch (joinRequestStatus) {
-      case 'approved':
+      case "approved":
         return {
-          text: isRequester ? 'Your join request has been approved! 🎉' : 'You approved this join request',
-          color: 'bg-green-50 text-green-800 border-green-200'
+          text: isRequester
+            ? "Your join request has been approved! 🎉"
+            : "You approved this join request",
+          color: "bg-green-50 text-green-800 border-green-200",
         };
-      case 'denied':
+      case "denied":
         return {
-          text: isRequester ? 'Your join request was not approved' : 'You declined this join request',
-          color: 'bg-red-50 text-red-800 border-red-200'
+          text: isRequester
+            ? "Your join request was not approved"
+            : "You declined this join request",
+          color: "bg-red-50 text-red-800 border-red-200",
         };
-      case 'pending':
+      case "pending":
         return {
-          text: isRequester ? 'Your join request is pending review' : 'New join request - please review',
-          color: 'bg-orange-50 text-orange-800 border-orange-200'
+          text: isRequester
+            ? "Your join request is pending review"
+            : "New join request - please review",
+          color: "bg-orange-50 text-orange-800 border-orange-200",
         };
       default:
         return null;
@@ -110,12 +131,7 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
         animate={{ y: 0, opacity: 1 }}
         className="bg-white border-b border-gray-200 px-4 py-3 flex items-center space-x-3"
       >
-        <Button
-          onClick={onBack}
-          variant="ghost"
-          size="sm"
-          className="p-2"
-        >
+        <Button onClick={onBack} variant="ghost" size="sm" className="p-2">
           <ArrowLeft className="w-5 h-5" />
         </Button>
 
@@ -124,13 +140,18 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
             <img
               src={otherParticipant.profileImage}
               alt={otherParticipant.name}
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() =>
+                onProfileClick && onProfileClick(otherParticipant.id)
+              }
             />
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
           </div>
-          
+
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 text-sm">{otherParticipant.name}</h3>
+            <h3 className="font-semibold text-gray-900 text-sm">
+              {otherParticipant.name}
+            </h3>
             <p className="text-xs text-green-600">Online now</p>
           </div>
         </div>
@@ -165,9 +186,10 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
         >
           <div className="text-center">
             <p className="text-sm font-medium">{statusMessage.text}</p>
-            {isHost && joinRequestStatus === 'pending' && (
+            {isHost && joinRequestStatus === "pending" && (
               <p className="text-xs mt-1">
-                The host has full discretion to accept or deny requests. They can make this decision at any time during or after conversation.
+                The host has full discretion to accept or deny requests. They
+                can make this decision at any time during or after conversation.
               </p>
             )}
           </div>
@@ -178,10 +200,17 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {directChat.messages.map((msg, index) => {
           const isCurrentUser = msg.userId === user.id;
-          const isSystem = msg.type === 'system';
-          const showAvatar = !isCurrentUser && !isSystem && (index === 0 || directChat.messages[index - 1].userId !== msg.userId);
-          const showDate = index === 0 || formatDate(msg.timestamp) !== formatDate(directChat.messages[index - 1].timestamp);
-          
+          const isSystem = msg.type === "system";
+          const showAvatar =
+            !isCurrentUser &&
+            !isSystem &&
+            (index === 0 ||
+              directChat.messages[index - 1].userId !== msg.userId);
+          const showDate =
+            index === 0 ||
+            formatDate(msg.timestamp) !==
+              formatDate(directChat.messages[index - 1].timestamp);
+
           return (
             <div key={msg.id}>
               {showDate && (
@@ -191,7 +220,7 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
                   </span>
                 </div>
               )}
-              
+
               {isSystem ? (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -207,7 +236,9 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} items-end space-x-2`}
+                  className={`flex ${
+                    isCurrentUser ? "justify-end" : "justify-start"
+                  } items-end space-x-2`}
                 >
                   {!isCurrentUser && (
                     <div className="w-8 h-8 flex-shrink-0">
@@ -215,25 +246,39 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
                         <img
                           src={msg.userImage}
                           alt={msg.userName}
-                          className="w-8 h-8 rounded-full object-cover"
+                          className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() =>
+                            onProfileClick &&
+                            onProfileClick(otherParticipant.id)
+                          }
                         />
                       )}
                     </div>
                   )}
-                  
-                  <div className={`max-w-xs lg:max-w-md ${isCurrentUser ? 'order-1' : ''}`}>
+
+                  <div
+                    className={`max-w-xs lg:max-w-md ${
+                      isCurrentUser ? "order-1" : ""
+                    }`}
+                  >
                     {!isCurrentUser && showAvatar && (
-                      <p className="text-xs text-gray-600 mb-1 ml-1">{msg.userName}</p>
+                      <p className="text-xs text-gray-600 mb-1 ml-1">
+                        {msg.userName}
+                      </p>
                     )}
-                    <div className={`px-4 py-2 rounded-2xl ${
-                      isCurrentUser
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-br-sm'
-                        : 'bg-gray-100 text-gray-900 rounded-bl-sm'
-                    }`}>
+                    <div
+                      className={`px-4 py-2 rounded-2xl ${
+                        isCurrentUser
+                          ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-br-sm"
+                          : "bg-gray-100 text-gray-900 rounded-bl-sm"
+                      }`}
+                    >
                       <p className="text-sm">{msg.message}</p>
-                      <p className={`text-xs mt-1 ${
-                        isCurrentUser ? 'text-white/70' : 'text-gray-500'
-                      }`}>
+                      <p
+                        className={`text-xs mt-1 ${
+                          isCurrentUser ? "text-white/70" : "text-gray-500"
+                        }`}
+                      >
                         {formatTime(msg.timestamp)}
                       </p>
                     </div>
@@ -247,28 +292,32 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
       </div>
 
       {/* Action Buttons for Host (Join Request Review) */}
-      {isHost && isJoinRequest && joinRequestStatus === 'pending' && onApproveRequest && onDenyRequest && (
-        <div className="bg-white border-t border-gray-200 px-4 py-4">
-          <div className="flex space-x-3 mb-3">
-            <Button
-              onClick={handleDeny}
-              variant="outline"
-              className="flex-1 flex items-center justify-center space-x-2 border-red-300 text-red-600 hover:bg-red-50"
-            >
-              <X className="w-4 h-4" />
-              <span>Deny</span>
-            </Button>
-            
-            <Button
-              onClick={handleApprove}
-              className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700"
-            >
-              <Check className="w-4 h-4" />
-              <span>Accept</span>
-            </Button>
+      {isHost &&
+        isJoinRequest &&
+        joinRequestStatus === "pending" &&
+        onApproveRequest &&
+        onDenyRequest && (
+          <div className="bg-white border-t border-gray-200 px-4 py-4">
+            <div className="flex space-x-3 mb-3">
+              <Button
+                onClick={handleDeny}
+                variant="outline"
+                className="flex-1 flex items-center justify-center space-x-2 border-red-300 text-red-600 hover:bg-red-50"
+              >
+                <X className="w-4 h-4" />
+                <span>Deny</span>
+              </Button>
+
+              <Button
+                onClick={handleApprove}
+                className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700"
+              >
+                <Check className="w-4 h-4" />
+                <span>Accept</span>
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Input */}
       <div className="bg-white border-t border-gray-200 px-4 py-3">
@@ -276,25 +325,29 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
           <Button variant="ghost" size="sm" className="p-2">
             <Smile className="w-5 h-5" />
           </Button>
-          
+
           <div className="flex-1">
             <Input
-              placeholder={joinRequestStatus === 'denied' ? 'Request was denied' : 'Type a message...'}
+              placeholder={
+                joinRequestStatus === "denied"
+                  ? "Request was denied"
+                  : "Type a message..."
+              }
               value={message}
               onChange={setMessage}
-              disabled={joinRequestStatus === 'denied'}
+              disabled={joinRequestStatus === "denied"}
               onKeyPress={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === "Enter") {
                   e.preventDefault();
                   handleSend();
                 }
               }}
             />
           </div>
-          
+
           <Button
             onClick={handleSend}
-            disabled={!message.trim() || joinRequestStatus === 'denied'}
+            disabled={!message.trim() || joinRequestStatus === "denied"}
             className="p-3 rounded-full"
           >
             <Send className="w-4 h-4" />

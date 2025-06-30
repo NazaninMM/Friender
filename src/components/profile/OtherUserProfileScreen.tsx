@@ -1,25 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Edit,
+  ArrowLeft,
   MapPin,
   Calendar,
   Users,
   Heart,
-  Settings,
-  Camera,
-  Star,
-  Award,
-  Activity,
   MessageCircle,
   Share,
-  MoreHorizontal,
   Instagram,
   Music,
   Brain,
   Shield,
-  Bell,
-  LogOut,
+  Star,
   CheckCircle,
   Plus,
   Sparkles,
@@ -30,39 +23,31 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { userService, activityService } from "../../lib/database";
 import { DefaultProfileImage } from "../ui/DefaultProfileImage";
-import { useAuth } from "../../hooks/useAuth";
-import { Activity as ActivityType } from "../../types";
+import { User, Activity as ActivityType } from "../../types";
 
-interface ProfileScreenProps {
-  onEdit?: () => void;
-  onSettings?: () => void;
-  onLogout?: () => void;
+interface OtherUserProfileScreenProps {
+  userId: string;
+  onBack: () => void;
+  onMessage?: (userId: string) => void;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({
-  onEdit,
-  onSettings,
-  onLogout,
+export const OtherUserProfileScreen: React.FC<OtherUserProfileScreenProps> = ({
+  userId,
+  onBack,
+  onMessage,
 }) => {
-  const { user, loading, updateProfile } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "about" | "activities" | "connections"
   >("about");
-  const [isUploading, setIsUploading] = useState(false);
-  const [profileImage, setProfileImage] = useState(user?.profileImage ?? "");
-  const [isEditingLocation, setIsEditingLocation] = useState(false);
-  const [newLocation, setNewLocation] = useState(user?.location ?? "");
   const [userActivities, setUserActivities] = useState<ActivityType[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Sync local profileImage state with user prop
+  // Fetch user profile when component mounts
   useEffect(() => {
-    if (user) {
-      setProfileImage(user.profileImage);
-      setNewLocation(user.location);
-    }
-  }, [user?.profileImage, user?.location]);
+    fetchUserProfile();
+  }, [userId]);
 
   // Fetch user activities when user changes
   useEffect(() => {
@@ -70,6 +55,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       fetchUserActivities();
     }
   }, [user?.id]);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      const userProfile = await userService.getUserProfile(userId);
+      setUser(userProfile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchUserActivities = async () => {
     if (!user?.id) return;
@@ -85,89 +82,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  if (loading || !user) {
+  const handleMessage = () => {
+    if (onMessage && user) {
+      onMessage(user.id);
+    }
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            {loading ? "Loading profile..." : "No user found"}
-          </p>
+          <p className="text-gray-600">Loading profile...</p>
         </div>
       </div>
     );
   }
 
-  const handleImageButtonClick = () => {
-    fileInputRef.current?.click();
-  };
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-600">User not found</p>
+          <Button onClick={onBack} className="mt-4">
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file (JPEG, PNG, GIF, etc.)");
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert(
-        "Image file is too large. Please select an image smaller than 5MB."
-      );
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      // Upload the image to Supabase Storage
-      const url = await userService.uploadProfileImage(user.id, file);
-      if (url) {
-        // Update the profile in the database and user state
-        await updateProfile({ profileImage: url });
-        setProfileImage(url);
-        console.log("✅ Profile image updated successfully");
-      } else {
-        throw new Error("Failed to upload image");
-      }
-    } catch (error) {
-      console.error("❌ Error updating profile image:", error);
-      alert("Failed to update profile image. Please try again.");
-    } finally {
-      setIsUploading(false);
-      // Clear the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
-  const handleLocationEdit = () => {
-    setIsEditingLocation(true);
-  };
-
-  const handleLocationSave = async () => {
-    if (newLocation.trim() !== user.location) {
-      try {
-        await updateProfile({ location: newLocation.trim() });
-        console.log("✅ Location updated successfully");
-      } catch (error) {
-        console.error("❌ Error updating location:", error);
-        alert("Failed to update location. Please try again.");
-        setNewLocation(user.location); // Reset to original
-      }
-    }
-    setIsEditingLocation(false);
-  };
-
-  const handleLocationCancel = () => {
-    setNewLocation(user.location);
-    setIsEditingLocation(false);
-  };
-
-  // Calculate real stats from user data and activities
+  // Calculate stats from user data and activities
   const createdActivities = userActivities.filter(
     (activity) => activity.createdBy.id === user.id
   );
@@ -193,7 +139,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     {
       label: "Profile Views",
       value: 0,
-      icon: Activity,
+      icon: Users,
       color: "text-purple-600",
       bg: "bg-purple-50",
     },
@@ -241,7 +187,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     },
     {
       name: "Activity Creator",
-      description: "Created your first activity",
+      description: "Created their first activity",
       icon: Plus,
       color: "text-green-500",
     },
@@ -259,30 +205,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={onSettings}
+                onClick={onBack}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200"
               >
-                <Settings className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onLogout}
-                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
-              >
-                <LogOut className="w-5 h-5" />
-              </motion.button>
+              <h1 className="text-xl font-bold text-gray-900">Profile</h1>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-md mx-auto px-4 py-6">
         {/* Enhanced Profile Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -304,61 +242,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <div className="relative p-6">
               {/* Profile Image Section */}
               <div className="flex flex-col items-center mb-6">
-                <div className="relative group">
-                  <div className="relative">
-                    {profileImage ? (
-                      <img
-                        src={profileImage}
-                        alt={`${user.name}'s profile`}
-                        className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                <div className="relative">
+                  {user.profileImage ? (
+                    <img
+                      src={user.profileImage}
+                      alt={`${user.name}'s profile`}
+                      className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full border-4 border-white shadow-lg overflow-hidden">
+                      <DefaultProfileImage
+                        name={user.name}
+                        className="w-full h-full text-2xl"
                       />
-                    ) : (
-                      <div className="w-24 h-24 rounded-full border-4 border-white shadow-lg overflow-hidden">
-                        <DefaultProfileImage
-                          name={user.name}
-                          className="w-full h-full text-2xl"
-                        />
-                      </div>
-                    )}
-
-                    {/* Upload Button Overlay */}
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={handleImageButtonClick}
-                      disabled={isUploading}
-                      className="absolute -bottom-1 -right-1 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-gray-100 hover:bg-gray-50 transition-all duration-200"
-                    >
-                      {isUploading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />
-                      ) : (
-                        <Camera className="w-4 h-4 text-gray-600" />
-                      )}
-                    </motion.button>
-                  </div>
-
-                  {/* Upload Status */}
-                  {isUploading && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-white bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full"
-                    >
-                      Uploading...
-                    </motion.div>
+                    </div>
                   )}
                 </div>
 
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  style={{ display: "none" }}
-                  onChange={handleFileChange}
-                  disabled={isUploading}
-                />
-
-                {/* Name and Rating */}
                 <div className="text-center mt-4">
                   <h2 className="text-2xl font-bold text-white mb-1">
                     {user.firstName} {user.lastName}
@@ -379,43 +279,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   </div>
 
                   {/* Location */}
-                  <div className="flex items-center justify-center text-white/90 mb-4">
+                  <div className="flex items-center justify-center text-white/90">
                     <MapPin className="w-4 h-4 mr-1" />
-                    {isEditingLocation ? (
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="text"
-                          value={newLocation}
-                          onChange={(e) => setNewLocation(e.target.value)}
-                          className="text-sm bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-1 text-white placeholder-white/60 focus:outline-none focus:border-white/60"
-                          placeholder="Enter your location"
-                        />
-                        <button
-                          onClick={handleLocationSave}
-                          className="text-xs bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition-colors"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={handleLocationCancel}
-                          className="text-xs bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm">
-                          {user.location || "No location set"}
-                        </span>
-                        <button
-                          onClick={handleLocationEdit}
-                          className="text-xs text-white/80 hover:text-white transition-colors"
-                        >
-                          <Edit className="w-3 h-3" />
-                        </button>
-                      </div>
-                    )}
+                    <span className="text-sm">
+                      {user.location || "No location set"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -428,7 +296,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               )}
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-4 gap-3 mb-6">
+              <div className="grid grid-cols-3 gap-3 mb-6">
                 {stats.map((stat, index) => (
                   <motion.div
                     key={index}
@@ -454,7 +322,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
               {/* Action Buttons */}
               <div className="flex space-x-3">
-                <Button className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 transition-all duration-200">
+                <Button
+                  onClick={handleMessage}
+                  className="flex-1 bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 transition-all duration-200"
+                >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Message
                 </Button>
@@ -602,18 +473,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         </span>
                       </div>
                       <div
-                        className={`px-3 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
                           service.connected
                             ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-600"
+                            : "bg-gray-100 text-gray-500"
                         }`}
                       >
-                        {service.connected && (
-                          <CheckCircle className="w-3 h-3" />
-                        )}
-                        <span>
-                          {service.connected ? "Connected" : "Not Connected"}
-                        </span>
+                        {service.connected ? "Connected" : "Not Connected"}
                       </div>
                     </motion.div>
                   ))}
@@ -623,7 +489,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {/* Achievements */}
               <Card className="p-6 border-0 shadow-lg">
                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                  <Award className="w-5 h-5 mr-2 text-yellow-500" />
+                  <Trophy className="w-5 h-5 mr-2 text-yellow-500" />
                   Achievements
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
@@ -671,7 +537,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       transition={{ delay: index * 0.1 }}
                       className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 mb-1">
                             {activity.title}
@@ -719,14 +585,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               ) : (
                 <div className="text-center py-12">
                   <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-4">No activities to show</p>
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Activity
-                  </Button>
+                  <p className="text-gray-600">No activities to show</p>
                 </div>
               )}
             </Card>
@@ -737,14 +596,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <h3 className="font-semibold text-gray-900 mb-4">Friends</h3>
               <div className="text-center py-12">
                 <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">No friends to show</p>
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-pink-500 to-rose-500"
-                >
-                  <Target className="w-4 h-4 mr-2" />
-                  Find Friends
-                </Button>
+                <p className="text-gray-600">No friends to show</p>
               </div>
             </Card>
           )}

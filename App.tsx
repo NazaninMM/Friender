@@ -1,50 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from './hooks/useAuth';
-import { useChat } from './hooks/useChat';
-import { LandingPage } from './components/auth/LandingPage';
-import { AuthScreen } from './components/auth/AuthScreen';
-import { SocialIntegrationScreen } from './components/auth/SocialIntegrationScreen';
-import { LocationPermissionScreen } from './components/auth/LocationPermissionScreen';
-import { LoadingScreen } from './components/common/LoadingScreen';
-import { HomeScreen } from './components/home/HomeScreen';
-import { ChatsList } from './components/chat/ChatsList';
-import { ActivitiesList } from './components/activities/ActivitiesList';
-import { ProfileScreen } from './components/profile/ProfileScreen';
-import { SettingsScreen } from './components/settings/SettingsScreen';
-import { ActivityChatScreen } from './components/activity/ActivityChatScreen';
-import { ActivityDetailScreen } from './components/activity/ActivityDetailScreen';
-import { HostRequestChatScreen } from './components/activity/HostRequestChatScreen';
-import { DirectChatScreen } from './components/chat/DirectChatScreen';
-import { CreateActivityModal } from './components/activity/CreateActivityModal';
-import { BottomNavigation } from './components/layout/BottomNavigation';
-import { Activity, CreateActivityData, User, JoinRequest, DirectMessageChat, ChatMessage } from './types';
-import { mockActivities } from './data/mockData';
-import { activityService } from './lib/database';
-import { joinRequestService } from './lib/joinRequestService';
-import { chatService } from './lib/chat';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "./hooks/useAuth";
+import { useChat } from "./hooks/useChat";
+import { LandingPage } from "./components/auth/LandingPage";
+import { AuthScreen } from "./components/auth/AuthScreen";
+import { SocialIntegrationScreen } from "./components/auth/SocialIntegrationScreen";
+import { LocationPermissionScreen } from "./components/auth/LocationPermissionScreen";
+import { LoadingScreen } from "./components/common/LoadingScreen";
+import { HomeScreen } from "./components/home/HomeScreen";
+import { ChatsList } from "./components/chat/ChatsList";
+import { ActivitiesList } from "./components/activities/ActivitiesList";
+import { ProfileScreen } from "./components/profile/ProfileScreen";
+import { OtherUserProfileScreen } from "./components/profile/OtherUserProfileScreen";
+import { SettingsScreen } from "./components/settings/SettingsScreen";
+import { ActivityChatScreen } from "./components/activity/ActivityChatScreen";
+import { ActivityDetailScreen } from "./components/activity/ActivityDetailScreen";
+import { HostRequestChatScreen } from "./components/activity/HostRequestChatScreen";
+import { DirectChatScreen } from "./components/chat/DirectChatScreen";
+import { CreateActivityModal } from "./components/activity/CreateActivityModal";
+import { BottomNavigation } from "./components/layout/BottomNavigation";
+import {
+  Activity,
+  CreateActivityData,
+  User,
+  JoinRequest,
+  DirectMessageChat,
+  ChatMessage,
+} from "./types";
+import { mockActivities } from "./data/mockData";
+import { activityService } from "./lib/database";
+import { joinRequestService } from "./lib/joinRequestService";
+import { chatService } from "./lib/chat";
+import { ChatsScreen } from "./components/chat/ChatsScreen";
 
-type AppFlowState = 'landing' | 'auth' | 'socialIntegration' | 'locationPermission' | 'loadingPersonality' | 'mainApp';
-type AppScreen = 'main' | 'direct-chat' | 'settings' | 'activity-detail';
-type MainTab = 'home' | 'chats' | 'activities' | 'profile';
+type AppFlowState =
+  | "landing"
+  | "auth"
+  | "socialIntegration"
+  | "locationPermission"
+  | "loadingPersonality"
+  | "mainApp";
+type AppScreen =
+  | "main"
+  | "direct-chat"
+  | "settings"
+  | "activity-detail"
+  | "other-user-profile";
+type MainTab = "home" | "chats" | "activities" | "profile";
 
 function App() {
-  console.log('App: Rendering App component');
-  
+  console.log("App: Rendering App component");
+
   const { user, loading, signOut } = useAuth();
   const { chats: directChats, getOrCreateChat, sendMessage } = useChat();
-  
+
   // App flow state management
-  const [appFlowState, setAppFlowState] = useState<AppFlowState>('landing');
+  const [appFlowState, setAppFlowState] = useState<AppFlowState>("landing");
   const [isNewUser, setIsNewUser] = useState(false);
-  
+
   // Main app state management
-  const [currentScreen, setCurrentScreen] = useState<AppScreen>('main');
-  const [currentTab, setCurrentTab] = useState<MainTab>('home');
+  const [currentScreen, setCurrentScreen] = useState<AppScreen>("main");
+  const [currentTab, setCurrentTab] = useState<MainTab>("home");
   const [activities, setActivities] = useState<Activity[]>(mockActivities);
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [selectedJoinRequest, setSelectedJoinRequest] = useState<JoinRequest | null>(null);
-  const [selectedDirectChat, setSelectedDirectChat] = useState<DirectMessageChat | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  );
+  const [selectedJoinRequest, setSelectedJoinRequest] =
+    useState<JoinRequest | null>(null);
+  const [selectedDirectChat, setSelectedDirectChat] =
+    useState<DirectMessageChat | null>(null);
+  const [selectedOtherUserId, setSelectedOtherUserId] = useState<string | null>(
+    null
+  );
   const [showChat, setShowChat] = useState(false);
   const [showHostRequest, setShowHostRequest] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -52,11 +79,18 @@ function App() {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [loadingJoinRequests, setLoadingJoinRequests] = useState(false);
 
-  console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState);
+  console.log(
+    "App: Current state - loading:",
+    loading,
+    "user:",
+    user ? "Present" : "None",
+    "appFlowState:",
+    appFlowState
+  );
 
   // Load activities and join requests when user is authenticated
   useEffect(() => {
-    if (user && appFlowState === 'mainApp') {
+    if (user && appFlowState === "mainApp") {
       loadActivities();
       loadJoinRequests();
     }
@@ -64,13 +98,13 @@ function App() {
 
   const loadActivities = async () => {
     if (!user) return;
-    
+
     try {
       setLoadingActivities(true);
       const userActivities = await activityService.getUserActivities(user.id);
       setActivities(userActivities);
     } catch (error) {
-      console.error('Error loading activities:', error);
+      console.error("Error loading activities:", error);
     } finally {
       setLoadingActivities(false);
     }
@@ -78,13 +112,15 @@ function App() {
 
   const loadJoinRequests = async () => {
     if (!user) return;
-    
+
     try {
       setLoadingJoinRequests(true);
-      const userJoinRequests = await joinRequestService.getUserJoinRequests(user.id);
+      const userJoinRequests = await joinRequestService.getUserJoinRequests(
+        user.id
+      );
       setJoinRequests(userJoinRequests);
     } catch (error) {
-      console.error('Error loading join requests:', error);
+      console.error("Error loading join requests:", error);
     } finally {
       setLoadingJoinRequests(false);
     }
@@ -95,22 +131,22 @@ function App() {
     if (!loading) {
       if (user) {
         // User is authenticated, go to main app
-        setAppFlowState('mainApp');
+        setAppFlowState("mainApp");
       } else {
         // No user, start from landing page
-        setAppFlowState('landing');
+        setAppFlowState("landing");
       }
     }
   }, [user, loading]);
 
   // Onboarding flow handlers
   const handleSignUpFromLanding = () => {
-    setAppFlowState('auth');
+    setAppFlowState("auth");
     setIsNewUser(true);
   };
 
   const handleLoginFromLanding = () => {
-    setAppFlowState('auth');
+    setAppFlowState("auth");
     setIsNewUser(false);
   };
 
@@ -118,99 +154,104 @@ function App() {
     setIsNewUser(newUser);
     if (newUser) {
       // New user goes through social integration
-      setAppFlowState('socialIntegration');
+      setAppFlowState("socialIntegration");
     } else {
       // Existing user goes straight to main app
-      setAppFlowState('mainApp');
+      setAppFlowState("mainApp");
     }
   };
 
   const handleSocialIntegrationComplete = (connectedServices: string[]) => {
-    console.log('Social integration completed with services:', connectedServices);
-    setAppFlowState('locationPermission');
+    console.log(
+      "Social integration completed with services:",
+      connectedServices
+    );
+    setAppFlowState("locationPermission");
   };
 
   const handleLocationPermissionComplete = () => {
-    setAppFlowState('loadingPersonality');
+    setAppFlowState("loadingPersonality");
   };
 
   const handleLocationPermissionSkip = () => {
-    setAppFlowState('loadingPersonality');
+    setAppFlowState("loadingPersonality");
   };
 
   const handlePersonalityLoadingComplete = () => {
-    setAppFlowState('mainApp');
+    setAppFlowState("mainApp");
   };
 
   const handleBackFromAuth = () => {
-    setAppFlowState('landing');
+    setAppFlowState("landing");
   };
 
   const handleBackFromSocialIntegration = () => {
-    setAppFlowState('auth');
+    setAppFlowState("auth");
   };
 
   const handleBackFromLocationPermission = () => {
-    setAppFlowState('socialIntegration');
+    setAppFlowState("socialIntegration");
   };
 
   // Main app handlers
   const handleSettings = () => {
-    setCurrentScreen('settings');
+    setCurrentScreen("settings");
   };
 
   const handleBackFromSettings = () => {
-    setCurrentScreen('main');
-    setCurrentTab('profile');
+    setCurrentScreen("main");
+    setCurrentTab("profile");
   };
 
   const handleLogout = () => {
     signOut();
-    setCurrentScreen('main');
-    setCurrentTab('home');
-    setAppFlowState('landing');
+    setCurrentScreen("main");
+    setCurrentTab("home");
+    setAppFlowState("landing");
   };
 
   const handleJoinActivity = async (activityId: string) => {
     if (!user) return;
 
-    const activity = activities.find(a => a.id === activityId);
+    const activity = activities.find((a) => a.id === activityId);
     if (!activity) return;
 
     try {
       // Create join request in database
       const result = await joinRequestService.createJoinRequest(
-        activityId, 
-        user.id, 
+        activityId,
+        user.id,
         `Hi! I'd love to join "${activity.title}". This looks like a great activity and I think I'd be a good fit for the group. Looking forward to hearing from you!`
       );
 
       if (result) {
         // Reload join requests to get the new one
         await loadJoinRequests();
-        
+
         // Add user to pending list in local state
-        setActivities(prev => prev.map(a => {
-          if (a.id === activityId) {
-            return {
-              ...a,
-              pendingUsers: [...(a.pendingUsers || []), user],
-              isPending: true,
-            };
-          }
-          return a;
-        }));
+        setActivities((prev) =>
+          prev.map((a) => {
+            if (a.id === activityId) {
+              return {
+                ...a,
+                pendingUsers: [...(a.pendingUsers || []), user],
+                isPending: true,
+              };
+            }
+            return a;
+          })
+        );
 
         // Create or open direct chat with the activity host
         const chat = await getOrCreateChat(activity.createdBy.id);
         if (chat) {
           setSelectedDirectChat(chat);
-          setCurrentScreen('direct-chat');
+          setCurrentScreen("direct-chat");
         }
       }
     } catch (error) {
-      console.error('Error joining activity:', error);
-      alert('Failed to join activity. Please try again.');
+      console.error("Error joining activity:", error);
+      alert("Failed to join activity. Please try again.");
     }
   };
 
@@ -218,20 +259,23 @@ function App() {
     if (!user) return;
 
     try {
-      const success = await joinRequestService.approveJoinRequest(requestId, user.id);
-      
+      const success = await joinRequestService.approveJoinRequest(
+        requestId,
+        user.id
+      );
+
       if (success) {
         // Reload data
         await loadJoinRequests();
         await loadActivities();
-        
+
         // Close host request chat
         setShowHostRequest(false);
         setSelectedJoinRequest(null);
       }
     } catch (error) {
-      console.error('Error approving request:', error);
-      alert('Failed to approve request. Please try again.');
+      console.error("Error approving request:", error);
+      alert("Failed to approve request. Please try again.");
     }
   };
 
@@ -239,13 +283,16 @@ function App() {
     if (!user) return;
 
     try {
-      const success = await joinRequestService.denyJoinRequest(requestId, user.id);
-      
+      const success = await joinRequestService.denyJoinRequest(
+        requestId,
+        user.id
+      );
+
       if (success) {
         // Reload data
         await loadJoinRequests();
         await loadActivities();
-        
+
         // Close host request chat after a delay
         setTimeout(() => {
           setShowHostRequest(false);
@@ -253,34 +300,41 @@ function App() {
         }, 2000);
       }
     } catch (error) {
-      console.error('Error denying request:', error);
-      alert('Failed to deny request. Please try again.');
+      console.error("Error denying request:", error);
+      alert("Failed to deny request. Please try again.");
     }
   };
 
   const handleCreateActivity = async (activityData: CreateActivityData) => {
     if (!user) return;
-    
+
     try {
-      console.log('App: handleCreateActivity called with', activityData, user.id);
-      const created = await activityService.createActivity(activityData, user.id);
-      console.log('App: activityService.createActivity result:', created);
-      
+      console.log(
+        "App: handleCreateActivity called with",
+        activityData,
+        user.id
+      );
+      const created = await activityService.createActivity(
+        activityData,
+        user.id
+      );
+      console.log("App: activityService.createActivity result:", created);
+
       if (created) {
-        setActivities(prev => [created, ...prev]);
+        setActivities((prev) => [created, ...prev]);
         setShowCreateModal(false);
       } else {
-        alert('Failed to create activity');
+        alert("Failed to create activity");
       }
     } catch (error) {
-      console.error('Error creating activity:', error);
-      alert('Failed to create activity. Please try again.');
+      console.error("Error creating activity:", error);
+      alert("Failed to create activity. Please try again.");
     }
   };
 
   const handleOpenActivity = (activity: Activity) => {
     setSelectedActivity(activity);
-    setCurrentScreen('activity-detail');
+    setCurrentScreen("activity-detail");
   };
 
   const handleOpenActivityChat = (activity: Activity) => {
@@ -296,18 +350,21 @@ function App() {
 
   const handleOpenDirectChat = (directChat: DirectMessageChat) => {
     setSelectedDirectChat(directChat);
-    setCurrentScreen('direct-chat');
+    setCurrentScreen("direct-chat");
   };
 
-  const handleSendDirectMessage = async (chatId: string, messageText: string) => {
+  const handleSendDirectMessage = async (
+    chatId: string,
+    messageText: string
+  ) => {
     if (!user) return;
 
     try {
       // Use the chat service to send the message
       await chatService.sendMessage(chatId, messageText);
     } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
+      console.error("Error sending message:", error);
+      alert("Failed to send message. Please try again.");
     }
   };
 
@@ -322,13 +379,31 @@ function App() {
   };
 
   const handleBackFromDirectChat = () => {
-    setCurrentScreen('main');
+    setCurrentScreen("main");
     setSelectedDirectChat(null);
   };
 
   const handleBackFromActivityDetail = () => {
-    setCurrentScreen('main');
+    setCurrentScreen("main");
     setSelectedActivity(null);
+  };
+
+  const handleOpenOtherUserProfile = (userId: string) => {
+    setSelectedOtherUserId(userId);
+    setCurrentScreen("other-user-profile");
+  };
+
+  const handleBackFromOtherUserProfile = () => {
+    setCurrentScreen("main");
+    setSelectedOtherUserId(null);
+  };
+
+  const handleMessageFromOtherUserProfile = (userId: string) => {
+    // Navigate back to main and open chat with this user
+    setCurrentScreen("main");
+    setSelectedOtherUserId(null);
+    // TODO: Implement opening chat with the user
+    // This could be done by finding the existing chat or creating a new one
   };
 
   const handleLeaveActivity = async (activityId: string) => {
@@ -336,24 +411,24 @@ function App() {
 
     try {
       const success = await activityService.leaveActivity(activityId, user.id);
-      
+
       if (success) {
         // Reload activities
         await loadActivities();
-        
+
         // Go back to main screen
-        setCurrentScreen('main');
+        setCurrentScreen("main");
         setSelectedActivity(null);
       }
     } catch (error) {
-      console.error('Error leaving activity:', error);
-      alert('Failed to leave activity. Please try again.');
+      console.error("Error leaving activity:", error);
+      alert("Failed to leave activity. Please try again.");
     }
   };
 
   // Show loading screen during initial auth check
   if (loading) {
-    console.log('App: Showing initial loading screen');
+    console.log("App: Showing initial loading screen");
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
         <motion.div
@@ -366,40 +441,40 @@ function App() {
   }
 
   // Render based on app flow state
-  if (appFlowState === 'landing') {
-    console.log('App: Showing landing page');
+  if (appFlowState === "landing") {
+    console.log("App: Showing landing page");
     return (
-      <LandingPage 
+      <LandingPage
         onSignUp={handleSignUpFromLanding}
         onLogin={handleLoginFromLanding}
       />
     );
   }
 
-  if (appFlowState === 'auth') {
-    console.log('App: Showing auth screen');
+  if (appFlowState === "auth") {
+    console.log("App: Showing auth screen");
     return (
-      <AuthScreen 
+      <AuthScreen
         onAuthSuccess={handleAuthSuccess}
         onBack={handleBackFromAuth}
       />
     );
   }
 
-  if (appFlowState === 'socialIntegration') {
-    console.log('App: Showing social integration screen');
+  if (appFlowState === "socialIntegration") {
+    console.log("App: Showing social integration screen");
     return (
-      <SocialIntegrationScreen 
+      <SocialIntegrationScreen
         onComplete={handleSocialIntegrationComplete}
         onBack={handleBackFromSocialIntegration}
       />
     );
   }
 
-  if (appFlowState === 'locationPermission') {
-    console.log('App: Showing location permission screen');
+  if (appFlowState === "locationPermission") {
+    console.log("App: Showing location permission screen");
     return (
-      <LocationPermissionScreen 
+      <LocationPermissionScreen
         onAllow={handleLocationPermissionComplete}
         onSkip={handleLocationPermissionSkip}
         onBack={handleBackFromLocationPermission}
@@ -407,30 +482,23 @@ function App() {
     );
   }
 
-  if (appFlowState === 'loadingPersonality') {
-    console.log('App: Showing personality loading screen');
-    return (
-      <LoadingScreen 
-        onComplete={handlePersonalityLoadingComplete}
-      />
-    );
+  if (appFlowState === "loadingPersonality") {
+    console.log("App: Showing personality loading screen");
+    return <LoadingScreen onComplete={handlePersonalityLoadingComplete} />;
   }
 
   // Main app screens
-  console.log('App: Showing main app interface');
+  console.log("App: Showing main app interface");
 
-  if (currentScreen === 'settings') {
+  if (currentScreen === "settings") {
     return (
-      <SettingsScreen 
-        onLogout={handleLogout}
-        onBack={handleBackFromSettings}
-      />
+      <SettingsScreen onLogout={handleLogout} onBack={handleBackFromSettings} />
     );
   }
 
-  if (currentScreen === 'activity-detail' && selectedActivity) {
+  if (currentScreen === "activity-detail" && selectedActivity) {
     return (
-      <ActivityDetailScreen 
+      <ActivityDetailScreen
         activity={selectedActivity}
         user={user!}
         onJoin={() => handleJoinActivity(selectedActivity.id)}
@@ -441,47 +509,60 @@ function App() {
     );
   }
 
-  if (currentScreen === 'direct-chat' && selectedDirectChat) {
+  if (currentScreen === "direct-chat" && selectedDirectChat) {
     return (
-      <DirectChatScreen 
+      <DirectChatScreen
         directChat={selectedDirectChat}
         user={user!}
         onBack={handleBackFromDirectChat}
         onSendMessage={handleSendDirectMessage}
         onApproveRequest={handleApproveRequest}
         onDenyRequest={handleDenyRequest}
+        onProfileClick={handleOpenOtherUserProfile}
       />
     );
   }
 
   if (showHostRequest && selectedActivity && selectedJoinRequest) {
     return (
-      <HostRequestChatScreen 
+      <HostRequestChatScreen
         activity={selectedActivity}
         user={user!}
         joinRequest={selectedJoinRequest}
         onBack={handleCloseHostRequest}
         onApprove={handleApproveRequest}
         onDeny={handleDenyRequest}
+        onProfileClick={handleOpenOtherUserProfile}
       />
     );
   }
 
   if (showChat && selectedActivity) {
     return (
-      <ActivityChatScreen 
+      <ActivityChatScreen
         activity={selectedActivity}
         user={user!}
         onBack={handleCloseChat}
+        onProfileClick={handleOpenOtherUserProfile}
+      />
+    );
+  }
+
+  if (currentScreen === "other-user-profile" && selectedOtherUserId) {
+    return (
+      <OtherUserProfileScreen
+        userId={selectedOtherUserId}
+        onBack={handleBackFromOtherUserProfile}
+        onMessage={handleMessageFromOtherUserProfile}
       />
     );
   }
 
   const renderCurrentTab = () => {
     switch (currentTab) {
-      case 'home':
+      case "home":
         return (
-          <HomeScreen 
+          <HomeScreen
             activities={activities}
             user={user!}
             onJoinActivity={handleJoinActivity}
@@ -489,29 +570,25 @@ function App() {
             onOpenActivity={handleOpenActivity}
           />
         );
-      case 'chats':
+      case "chats":
+        console.log("💬 App: Rendering ChatsScreen");
         return (
-          <ChatsList 
-            activities={activities}
-            user={user!}
-            joinRequests={joinRequests}
-            directChats={directChats}
+          <ChatsScreen
             onOpenChat={handleOpenActivityChat}
-            onOpenHostRequest={handleOpenHostRequest}
-            onOpenDirectChat={handleOpenDirectChat}
+            onProfileClick={handleOpenOtherUserProfile}
           />
         );
-      case 'activities':
+      case "activities":
         return (
-          <ActivitiesList 
+          <ActivitiesList
             activities={activities}
             user={user!}
             onOpenActivity={handleOpenActivity}
           />
         );
-      case 'profile':
+      case "profile":
         return (
-          <ProfileScreen 
+          <ProfileScreen
             user={user!}
             onSettings={handleSettings}
             onLogout={handleLogout}
@@ -535,13 +612,10 @@ function App() {
           {renderCurrentTab()}
         </motion.div>
       </AnimatePresence>
-      
-      <BottomNavigation 
-        currentTab={currentTab}
-        onTabChange={setCurrentTab}
-      />
 
-      <CreateActivityModal 
+      <BottomNavigation currentTab={currentTab} onTabChange={setCurrentTab} />
+
+      <CreateActivityModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreateActivity={handleCreateActivity}
