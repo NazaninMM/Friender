@@ -115,7 +115,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       // Check if user already has a pending join request
       const hasPending = await joinRequestService.hasPendingJoinRequest(activityId, user.id);
       if (hasPending) {
-        alert('You already have a pending join request for this activity.');
+        console.log('You already have a pending join request for this activity.');
         return;
       }
 
@@ -130,14 +130,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         // Call the parent handler to update UI state
         onJoinActivity(activityId);
         
-        // Show success message
-        alert('Join request sent! You can now chat with the host.');
+        // Show success message in console
+        console.log('Join request sent! You can now chat with the host.');
       } else {
-        alert('Failed to send join request. Please try again.');
+        console.error('Failed to send join request. Please try again.');
       }
     } catch (error) {
       console.error('Error joining activity:', error);
-      alert('Failed to send join request. Please try again.');
     } finally {
       setJoiningActivity(null);
     }
