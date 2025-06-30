@@ -242,13 +242,10 @@ export const joinRequestService = {
         return false;
       }
 
-      // Update join request status with explicit updated_at
+      // Update join request status (let the database trigger handle updated_at)
       const { error: updateError } = await supabase
         .from('join_requests')
-        .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: 'approved' })
         .eq('id', joinRequestId);
 
       if (updateError) {
@@ -267,10 +264,7 @@ export const joinRequestService = {
         // Revert the join request status if adding to activity fails
         await supabase
           .from('join_requests')
-          .update({ 
-            status: 'pending',
-            updated_at: new Date().toISOString()
-          })
+          .update({ status: 'pending' })
           .eq('id', joinRequestId);
         return false;
       }
@@ -305,13 +299,10 @@ export const joinRequestService = {
   // Deny a join request
   async denyJoinRequest(joinRequestId: string, hostId: string): Promise<boolean> {
     try {
-      // Update join request status with explicit updated_at
+      // Update join request status (let the database trigger handle updated_at)
       const { error: updateError } = await supabase
         .from('join_requests')
-        .update({ 
-          status: 'rejected',
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: 'rejected' })
         .eq('id', joinRequestId);
 
       if (updateError) {
