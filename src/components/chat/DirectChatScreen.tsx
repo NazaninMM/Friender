@@ -12,6 +12,7 @@ import {
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { DirectMessageChat, User, ChatMessage } from "../../types";
+import { DefaultProfileImage } from "../ui/DefaultProfileImage";
 
 interface DirectChatScreenProps {
   directChat: DirectMessageChat;
@@ -137,14 +138,25 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
 
         <div className="flex items-center space-x-3 flex-1">
           <div className="relative">
-            <img
-              src={otherParticipant.profileImage}
-              alt={otherParticipant.name}
-              className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() =>
-                onProfileClick && onProfileClick(otherParticipant.id)
-              }
-            />
+            {otherParticipant.profileImage ? (
+              <img
+                src={otherParticipant.profileImage}
+                alt={otherParticipant.name}
+                className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() =>
+                  onProfileClick && onProfileClick(otherParticipant.id)
+                }
+              />
+            ) : (
+              <DefaultProfileImage
+                name={otherParticipant.name}
+                size="sm"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() =>
+                  onProfileClick && onProfileClick(otherParticipant.id)
+                }
+              />
+            )}
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
           </div>
 
@@ -243,15 +255,27 @@ export const DirectChatScreen: React.FC<DirectChatScreenProps> = ({
                   {!isCurrentUser && (
                     <div className="w-8 h-8 flex-shrink-0">
                       {showAvatar && (
-                        <img
-                          src={msg.userImage}
-                          alt={msg.userName}
-                          className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() =>
-                            onProfileClick &&
-                            onProfileClick(otherParticipant.id)
-                          }
-                        />
+                        msg.userImage ? (
+                          <img
+                            src={msg.userImage}
+                            alt={msg.userName}
+                            className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() =>
+                              onProfileClick &&
+                              onProfileClick(otherParticipant.id)
+                            }
+                          />
+                        ) : (
+                          <DefaultProfileImage
+                            name={msg.userName}
+                            size="sm"
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() =>
+                              onProfileClick &&
+                              onProfileClick(otherParticipant.id)
+                            }
+                          />
+                        )
                       )}
                     </div>
                   )}

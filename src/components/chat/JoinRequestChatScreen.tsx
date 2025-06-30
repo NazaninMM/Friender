@@ -18,6 +18,7 @@ import {
   JoinRequestChat,
   JoinRequestChatMessage,
 } from "../../lib/joinRequestService";
+import { DefaultProfileImage } from "../ui/DefaultProfileImage";
 
 interface JoinRequestChatScreenProps {
   chat: JoinRequestChat;
@@ -192,21 +193,29 @@ export const JoinRequestChatScreen: React.FC<JoinRequestChatScreenProps> = ({
 
         <div className="flex items-center space-x-3 flex-1">
           <div className="relative">
-            <img
-              src={otherUser.profileImage || "/default-avatar.png"}
-              alt={otherUser.name}
-              className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-              onError={(e) => {
-                e.currentTarget.src = "/default-avatar.png";
-              }}
-              onClick={() => {
-                console.log(
-                  "Header profile image clicked for user:",
-                  otherUser.id
-                );
-                if (onProfileClick) onProfileClick(otherUser.id);
-              }}
-            />
+            {otherUser.profileImage ? (
+              <img
+                src={otherUser.profileImage}
+                alt={otherUser.name}
+                className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => {
+                  console.log(
+                    "Header profile image clicked for user:",
+                    otherUser.id
+                  );
+                  if (onProfileClick) onProfileClick(otherUser.id);
+                }}
+              />
+            ) : (
+              <DefaultProfileImage
+                name={otherUser.name}
+                size="sm"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => {
+                  if (onProfileClick) onProfileClick(otherUser.id);
+                }}
+              />
+            )}
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
           </div>
 
@@ -306,21 +315,29 @@ export const JoinRequestChatScreen: React.FC<JoinRequestChatScreenProps> = ({
                   {!isCurrentUser && (
                     <div className="w-8 h-8 flex-shrink-0">
                       {showAvatar && (
-                        <img
-                          src={msg.sender.profileImage || "/default-avatar.png"}
-                          alt={msg.sender.name}
-                          className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onError={(e) => {
-                            e.currentTarget.src = "/default-avatar.png";
-                          }}
-                          onClick={() => {
-                            console.log(
-                              "Message profile image clicked for user:",
-                              msg.sender.id
-                            );
-                            if (onProfileClick) onProfileClick(msg.sender.id);
-                          }}
-                        />
+                        msg.sender.profileImage ? (
+                          <img
+                            src={msg.sender.profileImage}
+                            alt={msg.sender.name}
+                            className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => {
+                              console.log(
+                                "Message profile image clicked for user:",
+                                msg.sender.id
+                              );
+                              if (onProfileClick) onProfileClick(msg.sender.id);
+                            }}
+                          />
+                        ) : (
+                          <DefaultProfileImage
+                            name={msg.sender.name}
+                            size="sm"
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => {
+                              if (onProfileClick) onProfileClick(msg.sender.id);
+                            }}
+                          />
+                        )
                       )}
                     </div>
                   )}

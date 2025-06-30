@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Activity, User } from '../../types';
 import { categoryIcons, categoryColors } from '../../constants/categories';
+import { DefaultProfileImage } from '../ui/DefaultProfileImage';
 
 interface ActivityDetailScreenProps {
   activity: Activity;
@@ -192,11 +193,18 @@ export const ActivityDetailScreen: React.FC<ActivityDetailScreenProps> = ({
             <div className="mb-6">
               <h3 className="font-semibold text-gray-900 mb-3">Hosted by</h3>
               <div className="flex items-center space-x-3">
-                <img
-                  src={activity.createdBy.profileImage}
-                  alt={activity.createdBy.name}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
+                {activity.createdBy.profileImage ? (
+                  <img
+                    src={activity.createdBy.profileImage}
+                    alt={activity.createdBy.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                ) : (
+                  <DefaultProfileImage
+                    name={activity.createdBy.name}
+                    size="md"
+                  />
+                )}
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{activity.createdBy.name}</p>
                   <p className="text-sm text-gray-600">{activity.createdBy.location}</p>
@@ -225,11 +233,18 @@ export const ActivityDetailScreen: React.FC<ActivityDetailScreenProps> = ({
               <div className="space-y-3">
                 {activity.attendees.slice(0, 5).map((attendee, index) => (
                   <div key={attendee.id} className="flex items-center space-x-3">
-                    <img
-                      src={attendee.profileImage}
-                      alt={attendee.name}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
+                    {attendee.profileImage ? (
+                      <img
+                        src={attendee.profileImage}
+                        alt={attendee.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <DefaultProfileImage
+                        name={attendee.name}
+                        size="sm"
+                      />
+                    )}
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">
                         {attendee.name}

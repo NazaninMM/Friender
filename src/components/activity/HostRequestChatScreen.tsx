@@ -1,13 +1,21 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, X, User, Clock } from "lucide-react";
+import {
+  ArrowLeft,
+  Send,
+  X,
+  User,
+  Clock,
+} from "lucide-react";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 import {
   Activity,
   User as UserType,
   ChatMessage,
   JoinRequest,
 } from "../../types";
+import { DefaultProfileImage } from "../ui/DefaultProfileImage";
 
 interface HostRequestChatScreenProps {
   activity: Activity;
@@ -167,12 +175,21 @@ export const HostRequestChatScreen: React.FC<HostRequestChatScreenProps> = ({
                   } items-end space-x-2`}
                 >
                   {!isCurrentUser && (
-                    <img
-                      src={msg.userImage}
-                      alt={msg.userName}
-                      className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => onProfileClick?.(msg.userId)}
-                    />
+                    msg.userImage ? (
+                      <img
+                        src={msg.userImage}
+                        alt={msg.userName}
+                        className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => onProfileClick?.(msg.userId)}
+                      />
+                    ) : (
+                      <DefaultProfileImage
+                        name={msg.userName}
+                        size="sm"
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => onProfileClick?.(msg.userId)}
+                      />
+                    )
                   )}
 
                   <div
@@ -229,7 +246,7 @@ export const HostRequestChatScreen: React.FC<HostRequestChatScreenProps> = ({
               onClick={handleApprove}
               className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700"
             >
-              <Check className="w-4 h-4" />
+              <Clock className="w-4 h-4" />
               <span>Approve</span>
             </Button>
           </div>

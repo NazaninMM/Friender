@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { MessageCircle, Clock, Users, AlertCircle, CheckCircle, User } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Activity, User as UserType, JoinRequest, DirectMessageChat } from '../../types';
+import { DefaultProfileImage } from '../ui/DefaultProfileImage';
 
 interface ChatsListProps {
   activities: Activity[];

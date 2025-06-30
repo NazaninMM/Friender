@@ -6,6 +6,7 @@ import { Input } from "../ui/Input";
 import { User, ChatMessage } from "../../types";
 import { useAuth } from "../../hooks/useAuth";
 import { chatService } from "../../lib/chat";
+import { DefaultProfileImage } from "../ui/DefaultProfileImage";
 
 interface ChatScreenProps {
   otherUser: User;
@@ -136,15 +137,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
         <div className="flex items-center space-x-3 flex-1">
           <div className="relative">
-            <img
-              src={getOtherParticipant().profileImage || "/default-avatar.png"}
-              alt={getOtherParticipant().name}
-              className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-              onError={(e) => {
-                e.currentTarget.src = "/default-avatar.png";
-              }}
-              onClick={() => onProfileClick?.(getOtherParticipant().id)}
-            />
+            {getOtherParticipant().profileImage ? (
+              <img
+                src={getOtherParticipant().profileImage}
+                alt={getOtherParticipant().name}
+                className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => onProfileClick?.(getOtherParticipant().id)}
+              />
+            ) : (
+              <DefaultProfileImage
+                name={getOtherParticipant().name}
+                size="sm"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => onProfileClick?.(getOtherParticipant().id)}
+              />
+            )}
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
           </div>
 
@@ -201,20 +208,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 {!isCurrentUser && (
                   <div className="w-8 h-8 flex-shrink-0">
                     {showAvatar && (
-                      <img
-                        src={
-                          getOtherParticipant().profileImage ||
-                          "/default-avatar.png"
-                        }
-                        alt={getOtherParticipant().name}
-                        className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                        onError={(e) => {
-                          e.currentTarget.src = "/default-avatar.png";
-                        }}
-                        onClick={() =>
-                          onProfileClick?.(getOtherParticipant().id)
-                        }
-                      />
+                      getOtherParticipant().profileImage ? (
+                        <img
+                          src={getOtherParticipant().profileImage}
+                          alt={getOtherParticipant().name}
+                          className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() =>
+                            onProfileClick?.(getOtherParticipant().id)
+                          }
+                        />
+                      ) : (
+                        <DefaultProfileImage
+                          name={getOtherParticipant().name}
+                          size="sm"
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() =>
+                            onProfileClick?.(getOtherParticipant().id)
+                          }
+                        />
+                      )
                     )}
                   </div>
                 )}

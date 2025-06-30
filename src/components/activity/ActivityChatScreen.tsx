@@ -4,6 +4,7 @@ import { ArrowLeft, Send, Users, Smile } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Activity, User, ChatMessage } from "../../types";
+import { DefaultProfileImage } from "../ui/DefaultProfileImage";
 
 interface ActivityChatScreenProps {
   activity: Activity;
@@ -204,12 +205,21 @@ export const ActivityChatScreen: React.FC<ActivityChatScreenProps> = ({
                   {!isCurrentUser && (
                     <div className="w-8 h-8 flex-shrink-0">
                       {showAvatar && (
-                        <img
-                          src={msg.userImage}
-                          alt={msg.userName}
-                          className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => onProfileClick?.(msg.userId)}
-                        />
+                        msg.userImage ? (
+                          <img
+                            src={msg.userImage}
+                            alt={msg.userName}
+                            className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => onProfileClick?.(msg.userId)}
+                          />
+                        ) : (
+                          <DefaultProfileImage
+                            name={msg.userName}
+                            size="sm"
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => onProfileClick?.(msg.userId)}
+                          />
+                        )
                       )}
                     </div>
                   )}
