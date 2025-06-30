@@ -350,10 +350,16 @@ export const joinRequestService = {
         .eq('activity_id', activityId)
         .eq('requester_id', userId)
         .eq('status', 'pending')
-        .single();
+        .maybeSingle();
 
-      return !error && !!data;
+      if (error) {
+        console.error('Error checking pending join request:', error);
+        return false;
+      }
+
+      return !!data;
     } catch (error) {
+      console.error('Error in hasPendingJoinRequest:', error);
       return false;
     }
   },
