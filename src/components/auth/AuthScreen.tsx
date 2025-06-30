@@ -66,7 +66,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
       }
     } catch (err: any) {
       console.error('💥 AuthScreen: Unexpected error during signup:', err);
-      setError(err.message || 'An unexpected error occurred. Please try again.');
+      
+      // Handle specific error cases
+      if (err.message && err.message.includes('User already registered')) {
+        setError('An account with this email already exists. Please try signing in instead.');
+        // Auto-switch to sign in mode after a delay
+        setTimeout(() => {
+          setMode('signin');
+          setFormData(prev => ({ ...prev, email: signupData.email, password: '' }));
+          setError('');
+        }, 3000);
+      } else {
+        setError(err.message || 'An unexpected error occurred. Please try again.');
+      }
+      
       setLoading(false);
       setShowLocationCapture(false);
     }
@@ -101,7 +114,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
       }
     } catch (err: any) {
       console.error('💥 AuthScreen: Unexpected error during signup:', err);
-      setError(err.message || 'An unexpected error occurred. Please try again.');
+      
+      // Handle specific error cases
+      if (err.message && err.message.includes('User already registered')) {
+        setError('An account with this email already exists. Please try signing in instead.');
+        // Auto-switch to sign in mode after a delay
+        setTimeout(() => {
+          setMode('signin');
+          setFormData(prev => ({ ...prev, email: signupData.email, password: '' }));
+          setError('');
+        }, 3000);
+      } else {
+        setError(err.message || 'An unexpected error occurred. Please try again.');
+      }
+      
       setLoading(false);
       setShowLocationCapture(false);
     }
@@ -214,7 +240,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
     } catch (error: any) {
       console.error('💥 AuthScreen: Unexpected error:', error);
       console.error('💥 Error stack:', error.stack);
-      setError('An unexpected error occurred. Please try again.');
+      
+      // Handle specific error cases
+      if (error.message && error.message.includes('User already registered')) {
+        setError('An account with this email already exists. Please try signing in instead.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
+      
       setLoading(false);
     }
   };

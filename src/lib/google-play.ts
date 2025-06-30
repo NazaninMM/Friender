@@ -10,13 +10,13 @@ export const GOOGLE_PLAY_CONFIG = {
 
 // Validate that required environment variables are set
 export function validateGooglePlayConfig(): boolean {
-  if (!GOOGLE_PLAY_CONFIG.clientId) {
-    console.error('Google Play Client ID is not configured');
+  if (!GOOGLE_PLAY_CONFIG.clientId || GOOGLE_PLAY_CONFIG.clientId === 'your-google-play-client-id.apps.googleusercontent.com') {
+    console.warn('Google Play Client ID is not configured or using placeholder value');
     return false;
   }
   
-  if (!GOOGLE_PLAY_CONFIG.clientSecret) {
-    console.error('Google Play Client Secret is not configured');
+  if (!GOOGLE_PLAY_CONFIG.clientSecret || GOOGLE_PLAY_CONFIG.clientSecret === 'your-google-play-client-secret') {
+    console.warn('Google Play Client Secret is not configured or using placeholder value');
     return false;
   }
   
@@ -113,4 +113,4 @@ export async function fetchGoogleProfile(accessToken: string) {
     console.error('Failed to fetch Google profile:', error);
     return null;
   }
-} 
+}
