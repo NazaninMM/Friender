@@ -187,7 +187,6 @@ export const HostRequestChatScreen: React.FC<HostRequestChatScreenProps> = ({
                         name={msg.userName}
                         size="sm"
                         className="cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => onProfileClick?.(msg.userId)}
                       />
                     )
                   )}
@@ -230,28 +229,7 @@ export const HostRequestChatScreen: React.FC<HostRequestChatScreenProps> = ({
       </div>
 
       {/* Action Buttons for Host */}
-      {isHost && joinRequest.status === "pending" && (
-        <div className="bg-white border-t border-gray-200 px-4 py-4">
-          <div className="flex space-x-3">
-            <Button
-              onClick={handleDeny}
-              variant="outline"
-              className="flex-1 flex items-center justify-center space-x-2 border-red-300 text-red-600 hover:bg-red-50"
-            >
-              <X className="w-4 h-4" />
-              <span>Decline</span>
-            </Button>
-
-            <Button
-              onClick={handleApprove}
-              className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700"
-            >
-              <Clock className="w-4 h-4" />
-              <span>Approve</span>
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Removed approve/deny buttons for new chats as requested */}
 
       {/* Status Message */}
       {joinRequest.status !== "pending" && (

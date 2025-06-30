@@ -242,11 +242,29 @@ function App() {
           })
         );
 
-        // Create or open direct chat with the activity host
-        const chat = await getOrCreateChat(activity.createdBy.id);
-        if (chat) {
-          setSelectedDirectChat(chat);
-          setCurrentScreen("direct-chat");
+        // Find the new join request in joinRequests state
+        // (wait for state update, or fetch directly if needed)
+        const joinRequestId = result.joinRequestId;
+        // Try to find the join request in the latest joinRequests state
+        // If not found, fetch it directly
+        let newJoinRequest = null;
+        if (joinRequests && joinRequests.length > 0) {
+          newJoinRequest = joinRequests.find(
+            (jr) => jr.id === joinRequestId
+          );
+        }
+        if (!newJoinRequest) {
+          // Fallback: fetch the join request directly
+          if (joinRequestService.getJoinRequest) {
+            newJoinRequest = await joinRequestService.getJoinRequest(joinRequestId);
+          }
+        }
+        if (newJoinRequest) {
+          setSelectedActivity(activity);
+          setSelectedJoinRequest(newJoinRequest);
+          setShowHostRequest(true);
+        } else {
+          alert("Join request created, but could not open chat. Please try again from your join requests.");
         }
       }
     } catch (error) {
