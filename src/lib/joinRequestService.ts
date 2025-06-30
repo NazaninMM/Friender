@@ -229,10 +229,12 @@ export const joinRequestService = {
   // Approve a join request
   async approveJoinRequest(joinRequestId: string, hostId: string): Promise<boolean> {
     try {
-      // Update join request status
+      // Update join request status - let the trigger handle updated_at
       const { error: updateError } = await supabase
         .from('join_requests')
-        .update({ status: 'approved' })
+        .update({ 
+          status: 'approved'
+        })
         .eq('id', joinRequestId);
 
       if (updateError) {
@@ -270,10 +272,12 @@ export const joinRequestService = {
   // Deny a join request
   async denyJoinRequest(joinRequestId: string, hostId: string): Promise<boolean> {
     try {
-      // Update join request status
+      // Update join request status - let the trigger handle updated_at
       const { error: updateError } = await supabase
         .from('join_requests')
-        .update({ status: 'denied' })
+        .update({ 
+          status: 'rejected'
+        })
         .eq('id', joinRequestId);
 
       if (updateError) {
