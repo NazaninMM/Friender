@@ -160,42 +160,44 @@ export const activityService = {
         return [];
       }
 
-      // Get attendees for each activity
+      // Filter out activities with null created_by and get attendees for each activity
       const activitiesWithAttendees = await Promise.all(
-        data.map(async (activity: any) => {
-          const attendees = await this.getActivityAttendees(activity.id);
-          return {
-            id: activity.id,
-            title: activity.title,
-            description: activity.description,
-            location: activity.location,
-            date: new Date(activity.date),
-            time: activity.time,
-            maxAttendees: activity.max_attendees,
-            currentAttendees: activity.current_attendees,
-            category: activity.category,
-            createdBy: {
-              id: activity.created_by.id,
-              firstName: activity.created_by.first_name,
-              lastName: activity.created_by.last_name,
-              name: activity.created_by.name || `${activity.created_by.first_name} ${activity.created_by.last_name}`,
-              email: activity.created_by.email,
-              age: activity.created_by.age,
-              profileImage: activity.created_by.profile_image || '',
-              bio: activity.created_by.bio || '',
-              location: activity.created_by.location || '',
-              interests: activity.created_by.interests || [],
-              personalityTraits: activity.created_by.personality_traits || [],
-              joinedActivities: activity.created_by.joined_activities || [],
-              createdActivities: activity.created_by.created_activities || [],
-              connectedServices: activity.created_by.connected_services || [],
-            },
-            attendees,
-            pendingUsers: [],
-            image: activity.image || 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
-            tags: activity.tags || [],
-          };
-        })
+        data
+          .filter((activity: any) => activity.created_by !== null)
+          .map(async (activity: any) => {
+            const attendees = await this.getActivityAttendees(activity.id);
+            return {
+              id: activity.id,
+              title: activity.title,
+              description: activity.description,
+              location: activity.location,
+              date: new Date(activity.date),
+              time: activity.time,
+              maxAttendees: activity.max_attendees,
+              currentAttendees: activity.current_attendees,
+              category: activity.category,
+              createdBy: {
+                id: activity.created_by.id,
+                firstName: activity.created_by.first_name,
+                lastName: activity.created_by.last_name,
+                name: activity.created_by.name || `${activity.created_by.first_name} ${activity.created_by.last_name}`,
+                email: activity.created_by.email,
+                age: activity.created_by.age,
+                profileImage: activity.created_by.profile_image || '',
+                bio: activity.created_by.bio || '',
+                location: activity.created_by.location || '',
+                interests: activity.created_by.interests || [],
+                personalityTraits: activity.created_by.personality_traits || [],
+                joinedActivities: activity.created_by.joined_activities || [],
+                createdActivities: activity.created_by.created_activities || [],
+                connectedServices: activity.created_by.connected_services || [],
+              },
+              attendees,
+              pendingUsers: [],
+              image: activity.image || 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
+              tags: activity.tags || [],
+            };
+          })
       );
 
       return activitiesWithAttendees;
@@ -253,6 +255,12 @@ export const activityService = {
 
       if (error) {
         console.error('Error fetching activity:', error);
+        return null;
+      }
+
+      // Check if created_by is null
+      if (!data.created_by) {
+        console.error('Activity has no creator profile:', activityId);
         return null;
       }
 
@@ -418,10 +426,12 @@ export const activityService = {
         ...(joinedActivities?.map((ja: any) => ja.activities) || [])
       ];
 
-      // Remove duplicates based on activity ID
-      const uniqueActivities = allActivities.filter((activity, index, self) => 
-        index === self.findIndex(a => a.id === activity.id)
-      );
+      // Remove duplicates based on activity ID and filter out activities with null created_by
+      const uniqueActivities = allActivities
+        .filter((activity, index, self) => 
+          index === self.findIndex(a => a.id === activity.id)
+        )
+        .filter((activity: any) => activity.created_by !== null);
 
       // Transform to Activity objects
       const activitiesWithAttendees = await Promise.all(
