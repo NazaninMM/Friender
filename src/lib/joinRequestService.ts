@@ -229,12 +229,11 @@ export const joinRequestService = {
   // Approve a join request
   async approveJoinRequest(joinRequestId: string, hostId: string): Promise<boolean> {
     try {
-      // Update join request status with explicit updated_at field
+      // Update join request status - let the trigger handle updated_at
       const { error: updateError } = await supabase
         .from('join_requests')
         .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
+          status: 'approved'
         })
         .eq('id', joinRequestId);
 
@@ -273,12 +272,11 @@ export const joinRequestService = {
   // Deny a join request
   async denyJoinRequest(joinRequestId: string, hostId: string): Promise<boolean> {
     try {
-      // Update join request status with explicit updated_at field
+      // Update join request status - let the trigger handle updated_at
       const { error: updateError } = await supabase
         .from('join_requests')
         .update({ 
-          status: 'denied',
-          updated_at: new Date().toISOString()
+          status: 'rejected'
         })
         .eq('id', joinRequestId);
 
