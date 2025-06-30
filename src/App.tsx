@@ -31,6 +31,7 @@ function App() {
   
   // App flow state management
   const [appFlowState, setAppFlowState] = useState<AppFlowState>('landing');
+  const [isNewUser, setIsNewUser] = useState(false);
   
   // Main app state management
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('main');
@@ -40,29 +41,46 @@ function App() {
   const [selectedOtherUser, setSelectedOtherUser] = useState<User | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [onboardingMode, setOnboardingMode] = useState<'signup' | 'signin' | null>(null);
 
-  console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState);
+  console.log('App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState, 'isNewUser:', isNewUser);
+
+  useEffect(() => {
+    async function fetchActivities() {
+      if (user) {
+        try {
+          console.log('Fetching activities...');
+          const activities = await activityService.getAllActivities();
+          console.log('Fetched activities:', activities);
+          setActivities(activities);
+        } catch (error) {
+          console.error('Error fetching activities:', error);
+        }
+      }
+    }
+    fetchActivities();
+  }, [user]);
 
   // Handle authentication state changes
   useEffect(() => {
     console.log('🔄 App: useEffect triggered');
-    console.log('📊 App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState);
-    console.log('👤 App: User details:', user ? {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      connectedServices: user.connectedServices
-    } : 'No user');
+    console.log('📊 App: Current state - loading:', loading, 'user:', user ? 'Present' : 'None', 'appFlowState:', appFlowState, 'isNewUser:', isNewUser);
     
     if (!loading) {
       console.log('✅ App: Not loading, processing state...');
       if (user) {
+        // If user is new, go to social integration
+        if (isNewUser) {
+          console.log('👤 App: New user detected, going to social integration');
+          setAppFlowState('socialIntegration');
+          return;
+        }
+        
         // Require at least 2 connected services to complete onboarding
         const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length >= 2;
         console.log('👤 App: User found');
         console.log('🔗 App: connectedServices:', user.connectedServices);
         console.log('✅ App: hasCompletedOnboarding:', hasCompletedOnboarding);
+        
         if (hasCompletedOnboarding) {
           // User has completed onboarding, go to main app
           console.log('🏠 App: Setting appFlowState to mainApp');
@@ -76,19 +94,12 @@ function App() {
         // No user, start from landing page
         console.log('🏠 App: No user, setting appFlowState to landing');
         setAppFlowState('landing');
+        setIsNewUser(false);
       }
     } else {
       console.log('⏳ App: Still loading, not changing appFlowState');
     }
-  }, [user, loading]);
-
-  useEffect(() => {
-    async function fetchActivities() {
-      const activities = await activityService.getAllActivities();
-      setActivities(activities);
-    }
-    fetchActivities();
-  }, []);
+  }, [user, loading, isNewUser]);
 
   // Onboarding flow handlers
   const handleSignUpFromLanding = () => {
@@ -102,25 +113,12 @@ function App() {
   };
 
   const handleAuthSuccess = (mode?: 'signup' | 'signin') => {
-    // Set onboarding mode
-    setOnboardingMode(mode || null);
-    // The useEffect below will handle the transition based on user.connectedServices
-    console.log('App: handleAuthSuccess called - user will be redirected based on onboarding status');
-    // Fallback: If we have a user but are still in auth state, force transition
-    if (user && appFlowState === 'auth') {
-      console.log('App: Fallback - forcing transition from auth state');
-      const hasCompletedOnboarding = user.connectedServices && user.connectedServices.length >= 2;
-      if (hasCompletedOnboarding) {
-        setAppFlowState('mainApp');
-      } else {
-        // Only show socialIntegration if just signed up
-        if (onboardingMode === 'signup') {
-          setAppFlowState('socialIntegration');
-        } else {
-          setAppFlowState('locationPermission');
-        }
-      }
-    }
+    // Set isNewUser based on the mode
+    console.log('App: handleAuthSuccess called with mode:', mode);
+    setIsNewUser(mode === 'signup');
+    
+    // The useEffect above will handle the transition based on user.connectedServices and isNewUser
+    console.log('App: handleAuthSuccess - isNewUser set to:', mode === 'signup');
   };
 
   const handleSocialIntegrationComplete = (connectedServices: string[]) => {
@@ -167,6 +165,7 @@ function App() {
     setCurrentScreen('main');
     setCurrentTab('home');
     setAppFlowState('landing');
+    setIsNewUser(false);
   };
 
   const handleOpenChat = (otherUser: User) => {
@@ -299,10 +298,6 @@ function App() {
   }
 
   if (appFlowState === 'socialIntegration') {
-    if (onboardingMode !== 'signup') {
-      setAppFlowState('locationPermission');
-      return null;
-    }
     console.log('App: Showing social integration screen');
     return (
       <SocialIntegrationScreen 

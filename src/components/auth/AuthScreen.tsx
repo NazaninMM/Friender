@@ -139,8 +139,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
         }
 
         console.log('🔐 AuthScreen: Calling signIn...');
-        const { error: signInError } = await signIn(formData.email.trim(), formData.password);
-        console.log('📊 AuthScreen: signIn result - error:', signInError);
+        const { error: signInError, isNewUser } = await signIn(formData.email.trim(), formData.password);
+        console.log('📊 AuthScreen: signIn result - error:', signInError, 'isNewUser:', isNewUser);
         
         if (signInError) {
           console.log('❌ AuthScreen: Sign in error:', signInError.message);
@@ -211,9 +211,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess, onBack })
         setShowLocationCapture(true);
         setLoading(false);
       }
-    } catch (err: any) {
-      console.error('💥 AuthScreen: Unexpected error:', err);
-      console.error('💥 Error stack:', err.stack);
+    } catch (error: any) {
+      console.error('💥 AuthScreen: Unexpected error:', error);
+      console.error('💥 Error stack:', error.stack);
       setError('An unexpected error occurred. Please try again.');
       setLoading(false);
     }

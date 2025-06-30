@@ -235,7 +235,7 @@ export const useAuth = () => {
       setSupabaseUser(authData.user);
 
       console.log('🎉 useAuth: Signup completed successfully');
-      return { success: true, user: newUser };
+      return { success: true, user: newUser, isNewUser: true };
 
     } catch (error) {
       console.log('💥 useAuth: Signup error:', error);
@@ -254,24 +254,25 @@ export const useAuth = () => {
 
       if (error) {
         console.log('useAuth: Sign in error:', error.message);
-        return { data: null, error };
+        return { data: null, error, isNewUser: false };
       }
 
       if (data?.user) {
         console.log('useAuth: Sign in successful');
         setSupabaseUser(data.user);
         // User profile will be fetched in the useEffect above
-        return { data, error: null };
+        return { data, error: null, isNewUser: false };
       }
 
-      return { data: null, error: { message: 'Sign in failed' } };
+      return { data: null, error: { message: 'Sign in failed' }, isNewUser: false };
     } catch (error) {
       console.log('useAuth: Error signing in:', error);
       return { 
         data: null, 
         error: { 
           message: 'An unexpected error occurred during sign in.' 
-        } 
+        },
+        isNewUser: false
       };
     }
   };
